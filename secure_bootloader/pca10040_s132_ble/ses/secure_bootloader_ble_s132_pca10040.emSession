@@ -1,0 +1,104 @@
+<!DOCTYPE CrossStudio_Session_File>
+<session>
+ <Bookmarks/>
+ <Breakpoints groups="Breakpoints" active_group="Breakpoints">
+  <BreakpointListItem trigger="" line="78" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" stopAll="false" group="Breakpoints" type="Breakpoint" state="4" filename="../../../../../components/libraries/crypto/nrf_crypto_ecc.c" useHWbreakpoint="false"/>
+  <Exceptions/>
+ </Breakpoints>
+ <ExecutionProfileWindow/>
+ <FrameBuffer>
+  <FrameBufferWindow width="0" keepAspectRatio="0" flipHorizontally="0" zoomToFitWindow="0" showGrid="0" flipVertically="0" addressSpace="" format="0" height="0" autoEvaluate="0" rotationDegrees="0" scaleFactor="1" refreshPeriod="0" name="secure_bootloader_ble_s132_pca10040_Release" addressText="" accessByDisplayWidth="0"/>
+ </FrameBuffer>
+ <Memory1>
+  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" viewType="4" addressOrder="0" columnsText="" refreshPeriod="0" name="secure_bootloader_ble_s132_pca10040_Release" sizeText="" addressText=""/>
+ </Memory1>
+ <Memory2>
+  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" viewType="4" addressOrder="0" columnsText="" refreshPeriod="0" name="secure_bootloader_ble_s132_pca10040_Release" sizeText="" addressText=""/>
+ </Memory2>
+ <Memory3>
+  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" viewType="4" addressOrder="0" columnsText="" refreshPeriod="0" name="secure_bootloader_ble_s132_pca10040_Release" sizeText="" addressText=""/>
+ </Memory3>
+ <Memory4>
+  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" viewType="4" addressOrder="0" columnsText="" refreshPeriod="0" name="secure_bootloader_ble_s132_pca10040_Release" sizeText="" addressText=""/>
+ </Memory4>
+ <Project>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;Application"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;Board Definition"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nano-pb"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Bootloader"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Crypto"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Crypto backend CC310_BL"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Crypto backend nRF sw"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Crypto backend Oberon"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Crypto backend uECC"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_DFU"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Drivers"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Libraries"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Log"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_micro-ecc"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_Oberon_Crypto"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_SoftDevice"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;nRF_SVC"/>
+  <ProjectSessionItem path="secure_bootloader_ble_s132_pca10040;secure_bootloader_ble_s132_pca10040;Segger Startup Files"/>
+ </Project>
+ <Register1>
+  <RegisterWindow invisibleNodes="" visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="secure_bootloader_ble_s132_pca10040_Release" decimalNodes="" octalNodes="" unsignedNodes=""/>
+ </Register1>
+ <Register2>
+  <RegisterWindow invisibleNodes="" visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="secure_bootloader_ble_s132_pca10040_Release" decimalNodes="" octalNodes="" unsignedNodes=""/>
+ </Register2>
+ <Register3>
+  <RegisterWindow invisibleNodes="" visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="secure_bootloader_ble_s132_pca10040_Release" decimalNodes="" octalNodes="" unsignedNodes=""/>
+ </Register3>
+ <Register4>
+  <RegisterWindow invisibleNodes="" visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="secure_bootloader_ble_s132_pca10040_Release" decimalNodes="" octalNodes="" unsignedNodes=""/>
+ </Register4>
+ <Threads>
+  <ThreadsWindow showLists=""/>
+ </Threads>
+ <TraceWindow>
+  <Trace enabled="Yes"/>
+ </TraceWindow>
+ <Watch1>
+  <Watches active="1" update="Never"/>
+ </Watch1>
+ <Watch2>
+  <Watches active="0" update="Never"/>
+ </Watch2>
+ <Watch3>
+  <Watches active="0" update="Never"/>
+ </Watch3>
+ <Watch4>
+  <Watches active="0" update="Never"/>
+ </Watch4>
+ <Files>
+  <SessionOpenFile windowGroup="DockEditLeft" x="40" y="161" useTextEdit="1" path="../../main.c" left="0" top="130" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="33" y="46" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/micro_ecc/micro_ecc_backend_ecc.h" left="0" top="6" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="40" y="110" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/cc310_bl/cc310_bl_backend_ecc.h" left="0" top="84" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="24" y="69" useTextEdit="1" path="../../../../../components/boards/pca10040.h" left="0" top="49" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="421" useTextEdit="1" path="../../../../../components/libraries/bootloader/nrf_bootloader.c" left="0" top="421" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="22" y="76" useTextEdit="1" path="../../../../../components/libraries/bootloader/nrf_bootloader_app_start_final.c" left="0" top="60" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="20" y="92" useTextEdit="1" path="../../app_gpio.c" left="0" selected="1" top="57" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="11" useTextEdit="1" path="../../../dfu_public_key.c" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="95" y="80" useTextEdit="1" path="../../../../../components/libraries/bootloader/dfu/dfu-cc.pb.c" left="51" top="46" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="15" y="224" useTextEdit="1" path="../../../../../components/libraries/bootloader/dfu/nrf_dfu_validation.c" left="0" top="197" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="26" y="41" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/oberon/oberon_backend_ecc.c" left="12" top="19" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="1175" useTextEdit="1" path="../config/sdk_config.h" left="0" top="1140" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="43" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/oberon/oberon_backend_ecc.h" left="0" top="3" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="34" y="42" useTextEdit="1" path="../../../../../modules/nrfx/drivers/src/nrfx_gpiote.c" left="0" top="15" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="6" y="64" useTextEdit="1" path="../../../../../components/libraries/crypto/nrf_crypto_ecc.c" left="0" top="44" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="29" y="126" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/nrf_sw/nrf_sw_backend_hash.c" left="0" top="87" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="94" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/cc310_bl/cc310_bl_backend_init.c" left="0" top="54" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="10" y="59" useTextEdit="1" path="../../../../../components/libraries/bootloader/dfu/nrf_dfu_req_handler.c" left="0" top="33" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="29" y="105" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/oberon/oberon_backend_hash.c" left="0" top="79" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="40" y="254" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/cc310_bl/cc310_bl_backend_hash.c" left="0" top="224" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="4" y="51" useTextEdit="1" path="../../../../../components/libraries/crypto/nrf_crypto_ecdsa.c" left="0" top="15" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="31" y="133" useTextEdit="1" path="../../../../../components/libraries/crypto/nrf_crypto_ecc_backend.h" left="0" top="113" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="28" y="47" useTextEdit="1" path="../../../../../components/libraries/crypto/backend/cc310_bl/cc310_bl_backend_shared.c" left="0" top="34" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="52" y="947" useTextEdit="1" path="../../../../../components/libraries/bootloader/ble_dfu/nrf_dfu_ble.c" left="0" top="927" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="5" y="26" useTextEdit="1" path="../config/app_gpio.h" left="0" top="0" codecName="Default"/>
+ </Files>
+ <EMStudioWindow activeProject="secure_bootloader_ble_s132_pca10040" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Release" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="C:/nrf/nRF5_SDK_17.1.0_ddde560/components/libraries/crypto/backend/cc310_bl" debugSearchPath="" autoConnectCapabilities="3199"/>
+</session>
