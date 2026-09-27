@@ -41,14 +41,19 @@
 #include "nrfx_gpiote.h"
 #include "app_sensor.h"
 APP_TIMER_DEF(m_sensor_timer);
-APP_TIMER_DEF(m_qcled_timer);
+APP_TIMER_DEF(m_redled_timer);
+APP_TIMER_DEF(m_blueled_timer);
+APP_TIMER_DEF(m_greenled_timer);
+
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
-#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
-#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(40, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
-#define SLAVE_LATENCY                    0                                        /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(6000, UNIT_10_MS)             /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
+#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)
+#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)
+#define SLAVE_LATENCY                   28
+
+
+#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(6000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
 #define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)                       /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)                      /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
@@ -395,28 +400,37 @@ void app_qc_gpio_init(void)
 
 /****************** QC GPIO*************************/
 extern void BLE_Init(void);
+uint32_t error_flag = 0;
 
+void error_set_flag(uint32_t flag)
+{
+  error_flag = flag;
+  nrf_gpio_pin_clear(LED_GREEN_PIN);
+  nrf_gpio_pin_clear(LED_BLUE_PIN);
+  nrf_gpio_pin_clear(LED_RED_PIN);
+  switch(error_flag)
+  {
+    case FLASH_ERROR:
+        led_timer_start(false,false,true,100);
+    break;
+    case ADC_ERROR:
+        led_timer_start(true,false,false,100);
+    break;
+    case MOTION_ERROR:
+        led_timer_start(false,true,false,100);
+    break;
+    case BLE_ERROR:
+        led_timer_start(true,true,true,100);
+    break;
+    default:
+    break;
+  }
+}
 
-static uint32_t timeout = 0;
-void QC_Sense_flag(void)
-{
-  timeout = 0;
-}
-uint8_t adc_error = 0;
-uint8_t qc_error = 0;
-void flash_error(void)
-{
-  qc_error = 1;
-}
 
 static void sensor_timer_handler(void * p_context)
 {
-    
-    timeout++; 
-    if(timeout >= 10)
-    {
-       qc_error = 1;
-    }
+
     uint32_t battery = battery_voltage_get();
 
     if(battery < 4300 && battery > 3400)
@@ -424,27 +438,68 @@ static void sensor_timer_handler(void * p_context)
     
     }
     else
-      adc_error = 1;
+      error_set_flag(ADC_ERROR);
 
 }
 
-static void QC_LED_timer_handler(void * p_context)
+static void QC_RED_timer_handler(void * p_context)
 {
-      if(adc_error)
-        nrf_gpio_pin_toggle(LED_GREEN_PIN);
-      if(qc_error)
-        nrf_gpio_pin_toggle(LED_RED_PIN);
+      nrf_gpio_pin_toggle(LED_RED_PIN);
 }
+static void QC_BLUE_timer_handler(void * p_context)
+{
+      nrf_gpio_pin_toggle(LED_BLUE_PIN);
+}
+static void QC_GREEN_timer_handler(void * p_context)
+{
+      nrf_gpio_pin_toggle(LED_GREEN_PIN);
+}
+
+void led_timer_start(bool r, bool g, bool b, uint32_t next_time)
+{
+  uint32_t timer_tick = APP_TIMER_TICKS(next_time);
+  if(r)
+  {
+    app_timer_stop(m_redled_timer);
+    app_timer_start(m_redled_timer, timer_tick, NULL);
+  }
+  if(g)
+  {
+    app_timer_stop(m_greenled_timer);
+    app_timer_start(m_greenled_timer, timer_tick, NULL);
+  }
+  if(b)
+  {
+    app_timer_stop(m_blueled_timer);
+    app_timer_start(m_blueled_timer, timer_tick, NULL);
+  }
+}
+
+
+void app_qc_timer_create(void)
+{
+  app_timer_create(&m_redled_timer, APP_TIMER_MODE_REPEATED, QC_RED_timer_handler);
+  app_timer_create(&m_blueled_timer, APP_TIMER_MODE_REPEATED, QC_BLUE_timer_handler);
+  app_timer_create(&m_greenled_timer, APP_TIMER_MODE_REPEATED, QC_GREEN_timer_handler);
+}
+
 
 void app_qc_mode(void)
 {
   ret_code_t err_code;
   app_qc_gpio_init();
 
-
+  app_qc_timer_create();
   saadc_init();
-  flash_init();
-  Sensor_init();
+
+  if(flash_init() != 0)
+    error_set_flag(FLASH_ERROR);
+
+
+  if(Sensor_init(false) == false)
+    error_set_flag(MOTION_ERROR);
+    
+
   Sensor_update();
   BLE_Init();
   App_advertising_start(0,0);
@@ -455,11 +510,7 @@ void app_qc_mode(void)
 
   APP_ERROR_CHECK(err_code);
   app_timer_start(m_sensor_timer, APP_TIMER_TICKS(1000), NULL);
-  err_code = app_timer_create(&m_qcled_timer,
-                              APP_TIMER_MODE_REPEATED,
-                              QC_LED_timer_handler);
-  APP_ERROR_CHECK(err_code);
-  app_timer_start(m_qcled_timer, APP_TIMER_TICKS(1000), NULL);
+
   while(1)
   {
     Sensor_update();

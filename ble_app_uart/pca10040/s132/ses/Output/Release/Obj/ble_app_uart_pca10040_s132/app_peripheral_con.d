@@ -107,4 +107,5 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_peripheral_con.o: \
  ../../../../../../components/libraries/fstorage/nrf_fstorage_sd.h \
  ../../../../../../components/libraries/fstorage/nrf_fstorage.h \
  ../../../../../../components/softdevice/s140/headers/nrf_sdm.h \
- ../../../../../../components/softdevice/s140/headers/nrf_error_sdm.h
+ ../../../../../../components/softdevice/s140/headers/nrf_error_sdm.h \
+ ../config/app_qc.h

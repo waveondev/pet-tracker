@@ -79,7 +79,7 @@ ble_gap_addr_t* Tracker_Get_WhiteList(void);
 ret_code_t flash_erase(uint32_t addr);
 ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len);
 ret_code_t flash_read(uint32_t addr, uint8_t* data, uint16_t len);
-void flash_init(void);
+uint32_t flash_init(void);
 
 #endif
 

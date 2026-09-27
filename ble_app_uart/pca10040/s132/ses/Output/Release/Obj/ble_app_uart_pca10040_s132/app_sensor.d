@@ -75,4 +75,6 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_sensor.o: \
  ../../../../../../components/softdevice/s140/headers/nrf_sd_def.h \
  ../../../../../../components/softdevice/s140/headers/nrf_soc.h \
  ../../../../../../modules/nrfx/drivers/nrfx_errors.h \
- ../config/lsm6dsv16b.h ../config/app_adc.h ../config/app_sensor_flash.h
+ ../config/lsm6dsv16b.h \
+ C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdlib.h \
+ ../config/app_adc.h ../config/app_sensor_flash.h

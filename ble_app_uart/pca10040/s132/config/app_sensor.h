@@ -123,9 +123,9 @@
 #define OUTX_L_A                        0x28
 
 #define FIFO_DATA_OUT_TAG               0x78
-void Sensor_Get_Id(void);
+bool Sensor_Get_Id(void);
 uint16_t Sensor_fifo_data_size(void);
-void Sensor_init(void);
+bool Sensor_init(bool debug);
 void sensor_enable(void);
 void Sensor_update(void);
 

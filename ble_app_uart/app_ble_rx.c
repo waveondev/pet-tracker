@@ -38,8 +38,6 @@ void ble_data_input(uint8_t* in_data, uint16_t len, int8_t rssi)
         lsb6_ble_data(Motion_Packet);
       break;
       case TIME_RESPONSE:
-
-        // 제시해주신 nRF52 시간 설정 함수 호출!
         rtc_sync_set_time(Motion_Packet);
       break;
       case FLASH_REQUEST:

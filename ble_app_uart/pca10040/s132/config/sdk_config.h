@@ -4879,7 +4879,11 @@
 // <e> NRFX_WDT_ENABLED - nrfx_wdt - WDT peripheral driver
 //==========================================================
 #ifndef NRFX_WDT_ENABLED
+#if WDT_ENABLED
+#define NRFX_WDT_ENABLED 1
+#else
 #define NRFX_WDT_ENABLED 0
+#endif
 #endif
 // <o> NRFX_WDT_CONFIG_BEHAVIOUR  - WDT behavior in CPU SLEEP or HALT mode
  
@@ -8147,7 +8151,12 @@
 // <i> Function for getting the timestamp is provided by the user
 //==========================================================
 #ifndef NRF_LOG_USES_TIMESTAMP
+#if NRF_LOG_ENABLED
+#define NRF_LOG_USES_TIMESTAMP 1
+#else
 #define NRF_LOG_USES_TIMESTAMP 0
+
+#endif
 #endif
 // <o> NRF_LOG_TIMESTAMP_DEFAULT_FREQUENCY - Default frequency of the timestamp (in Hz) or 0 to use app_timer frequency. 
 #ifndef NRF_LOG_TIMESTAMP_DEFAULT_FREQUENCY
@@ -11652,7 +11661,7 @@
 
 // <o> NRF_SDH_BLE_GATT_MAX_MTU_SIZE - Static maximum MTU size. 
 #ifndef NRF_SDH_BLE_GATT_MAX_MTU_SIZE
-#define NRF_SDH_BLE_GATT_MAX_MTU_SIZE 23
+#define NRF_SDH_BLE_GATT_MAX_MTU_SIZE 247
 #endif
 
 // <o> NRF_SDH_BLE_GATTS_ATTR_TAB_SIZE - Attribute Table size in bytes. The size must be a multiple of 4. 
@@ -12431,7 +12440,7 @@
 //==========================================================
 // <o> NRF_BLE_GQ_QUEUE_SIZE - Queue size for BLE GATT Queue module. 
 #ifndef NRF_BLE_GQ_QUEUE_SIZE
-#define NRF_BLE_GQ_QUEUE_SIZE 4
+#define NRF_BLE_GQ_QUEUE_SIZE 10
 #endif
 
 // <<< end of configuration section >>>

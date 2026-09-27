@@ -69,6 +69,9 @@
 #include "nrf_pwr_mgmt.h"
 #include "app_flash.h"
 #include "app_rtc.h"
+#include "app_qc.h"
+#include "app_wdg.h"
+
 /* DFUMODE 1 */
 //FLASH1 RX 0x0 0x100000 RAM1 RWX 0x20000000 0x40000 uicr_bootloader_start_address RX 0x10001014 0x4
 
@@ -93,11 +96,17 @@
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
+#if 1
+#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)
+#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)
+#define SLAVE_LATENCY        49
+#else
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)
+#define SLAVE_LATENCY        3
+#endif
 
-#define SLAVE_LATENCY                    4                                        /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(6000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
+#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(5000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
 #define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)
 #define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
@@ -105,8 +114,6 @@
 #define DEAD_BEEF                       0xDEADBEEF                                  /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
-
-
 
 NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
 
@@ -279,6 +286,21 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     uint8_t state = 0;
     switch (p_ble_evt->header.evt_id)
     {
+        case BLE_GAP_EVT_TIMEOUT:
+        {
+            NRF_LOG_ERROR(
+                "BLE_GAP_EVT_TIMEOUT src=%d",
+                p_ble_evt->evt.gap_evt.params.timeout.src
+            );
+
+            if (p_ble_evt->evt.gap_evt.params.timeout.src ==
+                BLE_GAP_TIMEOUT_SRC_CONN)
+            {
+                NRF_LOG_ERROR(">>> CONNECTION TIMEOUT <<<");
+        	Paring_Timer_Set(PARING_PERIPHERAL, 1,100);
+            }
+        }
+        break;
         case BLE_GAP_EVT_CONNECTED:
             comunication_connect_event();
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;   
@@ -434,13 +456,16 @@ err_code = nrf_ble_gatt_init(&m_gatt, gatt_evt_handler);
     err_code = nrf_ble_gatt_data_length_set(&m_gatt, BLE_CONN_HANDLE_INVALID, NRF_SDH_BLE_GAP_DATA_LENGTH);
     APP_ERROR_CHECK(err_code);
 }
-
+// 1. 타임스탬프 함수 정의 (uint32_t를 리턴해야 함)
+uint32_t my_timestamp_func(void) {
+    return app_timer_cnt_get(); // 또는 RTC 틱 값 리턴
+}
 
 /**@brief Function for initializing the nrf log module.
  */
 static void log_init(void)
 {
-    ret_code_t err_code = NRF_LOG_INIT(NULL);
+    ret_code_t err_code = NRF_LOG_INIT(my_timestamp_func);
     APP_ERROR_CHECK(err_code);
 
     NRF_LOG_DEFAULT_BACKENDS_INIT();
@@ -497,6 +522,8 @@ uint8_t is_ParingMode(void)
 {
     return (m_role_state == ROLE_PAIRING_ING )|| (m_role_state == ROLE_PAIRING_END);
 }
+
+
 static void paring_timer_handler(void * p_context)
 {
     tracker_setting_t* setting = Tracker_Get_Setting();
@@ -521,10 +548,7 @@ static void paring_timer_handler(void * p_context)
             {
                Paring_Timer_Set(PARING_PERIPHERAL, 1,100);
             }
-            else
-            {
-               Paring_Timer_Set(PARING_PERIPHERAL, 1,3000);
-            }
+
       }break;
       case PARING_PERIPHERAL:
       {
@@ -893,24 +917,26 @@ int main(void)
   
     timers_init();
     ble_stack_init();
-    rtc_sync_init();
+    //rtc_sync_init();
     gpio_init();
 #if 1
-    
+    //wdt_init();
    // saadc_init();
+    app_qc_timer_create();
     saadc_timer_handler(NULL);
-    flash_init();
+    if(flash_init() != 0)
+      error_set_flag(FLASH_ERROR);
+
 
     //twi_init();
-    Sensor_init();
+    if(Sensor_init(false) == false)
+      error_set_flag(MOTION_ERROR);
+
     Sensor_update();
 
     #if 1
-    BLE_Init();
-
-                
+    BLE_Init();            
     app_timers_start();
-    // Enter main loop.
     
     #endif
 #endif
@@ -920,10 +946,8 @@ int main(void)
     for (;;)
     {
         tracker_factory();
-        //Sensor_Get_Id();
         Sensor_update();
         idle_state_handle();
-        //clock_debug();
     }
 }
 

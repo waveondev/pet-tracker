@@ -70,5 +70,5 @@ Output/Debug/Obj/ble_app_uart_pca10040_s132/app_flash.o: \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdio.h \
  ../../../../../../components/libraries/util/app_error_weak.h \
  ../../../../../../components/libraries/log/nrf_log_default_backends.h \
- ../config/app_sensor_flash.h \
+ ../config/app_sensor_flash.h ../config/app_qc.h \
  ../../../../../../components/libraries/util/app_error.h

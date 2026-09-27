@@ -8,7 +8,8 @@
 
 #include "app_sensor_flash.h"
 #include <stdlib.h>
-void flash_error(void);
+#include "app_qc.h"
+
 #include "nrf_fstorage_sd.h"
 uint32_t BLE_Send_byte(uint8_t* data, uint16_t len);
 /**
@@ -19,7 +20,7 @@ static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
     if (p_evt->result != NRF_SUCCESS)
     {
         NRF_LOG_ERROR("Flash operation failed. Evt ID: %d, Result: %d", p_evt->id, p_evt->result);
-        flash_error();
+        error_set_flag(FLASH_ERROR);
         return;
     }
 
@@ -135,7 +136,7 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
         rc = nrf_fstorage_erase(&my_fstorage, addr, 1, NULL);
         if (rc != NRF_SUCCESS)
         {
-            flash_error();
+            error_set_flag(FLASH_ERROR);
             NRF_LOG_ERROR("Flash erase failed: %d", rc);
             return rc;
         }
@@ -150,7 +151,7 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
     }
     else
     {
-        flash_error();
+        error_set_flag(FLASH_ERROR);
         NRF_LOG_ERROR("Flash write failed: %d", rc);
     }
     flash_wait_idle();
@@ -196,7 +197,6 @@ void tracker_factory(void)
   if(factory_flag)
   {
     flash_erase(FLASH_SETTING_ADDR);
-    NVIC_SystemReset();
   }
 }
 
@@ -313,10 +313,10 @@ static void fds_dump_all(void)
 }
 #include "app_error.h"
 
-void flash_init(void)
+uint32_t flash_init(void)
 {
     ret_code_t rc = nrf_fstorage_init(&my_fstorage, &nrf_fstorage_sd, NULL);
-    APP_ERROR_CHECK(rc);
+    return rc;
     fds_dump_all();
 }
 

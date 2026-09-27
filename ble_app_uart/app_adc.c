@@ -63,16 +63,14 @@ uint16_t saadc_timer_handler(void * p_context)
     adc_value = value;
     if (err == NRF_SUCCESS)
     {
-      uint32_t pin_voltage = ((uint32_t)adc_value * 2400) / 1024;
+      uint32_t pin_voltage = ((uint32_t)adc_value * 2400) / 1020;
 
       // 2. 분배 저항 비율이 50% 분배라면 원본 배터리 전압은 2배를 곱함
       v_bat_mv = pin_voltage * 2; 
 
-
-       
        bat_level = battery_percent_stable(battery_percent(v_bat_mv));
-       NRF_LOG_INFO("Real Battery: %d%% (RAW:%d)\r\n", battery_percent_stable(battery_percent(v_bat_mv)), adc_value);
-       NRF_LOG_INFO("adc %dmv(%d)\r\n", v_bat_mv,adc_value); 
+       //NRF_LOG_INFO("Real Battery: %d%% (RAW:%d)\r\n", battery_percent_stable(battery_percent(v_bat_mv)), adc_value);
+       //NRF_LOG_INFO("adc %dmv(%d)\r\n", v_bat_mv,adc_value); 
     }
     else
     {

@@ -6,6 +6,7 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_qc.o: \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/__SEGGER_RTL_ConfDefaults.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/__SEGGER_RTL_Conf.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/__SEGGER_RTL_Arm_Conf.h \
+ C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdbool.h \
  ../../../../../../components/libraries/util/nordic_common.h \
  ../../../../../../modules/nrfx/mdk/nrf.h \
  ../../../../../../modules/nrfx/mdk/nrf52.h \
@@ -21,7 +22,6 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_qc.o: \
  ../../../../../../modules/nrfx/mdk/compiler_abstraction.h \
  ../../../../../../components/softdevice/s140/headers/ble_hci.h \
  ../../../../../../components/ble/common/ble_advdata.h \
- C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdbool.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/string.h \
  ../../../../../../components/softdevice/s140/headers/ble.h \
  ../../../../../../components/softdevice/s140/headers/nrf_svc.h \

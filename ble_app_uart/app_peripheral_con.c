@@ -22,7 +22,7 @@
 #include "app_ble_rx.h"
 
 #include "app_flash.h"
-
+#include "app_qc.h"
 #define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN                  /**< UUID type for the Nordic UART Service (vendor specific). */
 #define APP_ADV_INTERVAL                MSEC_TO_UNITS(100, UNIT_0_625_MS)       
 #define APP_ADV_DURATION                0   
@@ -222,7 +222,7 @@ static void advertising_beacon_name(char* beacon_name)
                                           strlen(beacon_name));
 }
 uint8_t is_ParingMode(void);
-static void advertising_data_start(void)
+static uint32_t advertising_data_start(void)
 {
 
     tracker_setting_t* setting = Tracker_Get_Setting();
@@ -266,21 +266,17 @@ static void advertising_data_start(void)
     }
     else
     {
-        NRF_LOG_INFO("TX Power set fail\r\n");
+        return err;
     }
 
     err = ble_advertising_advdata_update(&m_advertising,
                                                      &next_advdata,
                                                      NULL);
 
-
-    if (err != NRF_SUCCESS)
-    {
-        NRF_LOG_INFO("adv update fail: 0x%08X\r\n", err);
-    }
+    return err;
 }
 
-static void advertising_beacon_start(void)
+static uint32_t advertising_beacon_start(void)
 {
     ret_code_t err;
     ble_advdata_t advdata;     
@@ -312,11 +308,7 @@ static void advertising_beacon_start(void)
     err = ble_advertising_advdata_update(&m_advertising, &advdata,NULL);
     if (err != NRF_SUCCESS)
     {
-        NRF_LOG_INFO("conn adv update fail: 0x%08X\r\n", err);
-    }
-    else
-    {
-        NRF_LOG_INFO("conn adv update ok\r\n");
+        return err;
     }
 
     // TX Power 설정
@@ -324,12 +316,9 @@ static void advertising_beacon_start(void)
     err = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, 
                                   m_advertising.adv_handle, 
                                   target_power);
-    if (err != NRF_SUCCESS)
-    {
-        NRF_LOG_INFO("TX Power set fail\r\n");
-    }
+    return err;
 }
-#if 1
+
 
 void App_advertising_start(uint8_t data,ble_gap_addr_t* whitelist_addr)
 {
@@ -338,88 +327,47 @@ void App_advertising_start(uint8_t data,ble_gap_addr_t* whitelist_addr)
 
     NRF_LOG_INFO("\r\nSTART ADV %d\r\n",data);
     tracker_setting_t* setting = Tracker_Get_Setting();
-    uint32_t err_code; // 에러 코드 변수 추가
+    uint32_t err_code = 0; // 에러 코드 변수 추가
  
     if(data)
     {
         // 1. 순수 비콘 모드 (CONNECT 버튼 없애기)
         advertising_beacon_name(setting->device_name);
-        advertising_data_start();
+        if(advertising_data_start() != NRF_SUCCESS)
+          err_code++;
         
         //m_advertising.adv_modes_config.ble_adv_fast_interval = setting->beacon_adv_interval * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_NONCONNECTABLE_NONSCANNABLE_UNDIRECTED;
         m_advertising.adv_params.interval = setting->beacon_adv_interval * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         // ⭐ 핵심: 비콘 모드일 때는 얄미운 라이브러리 함수 대신 로우레벨 API 직접 호출!
-        err_code = sd_ble_gap_adv_set_configure(&m_advertising.adv_handle, &m_advertising.adv_data, &m_advertising.adv_params);
-        APP_ERROR_CHECK(err_code);
-        
-        err_code = sd_ble_gap_adv_start(m_advertising.adv_handle, APP_BLE_CONN_CFG_TAG);
-        APP_ERROR_CHECK(err_code);
+        if(sd_ble_gap_adv_set_configure(&m_advertising.adv_handle, &m_advertising.adv_data, &m_advertising.adv_params) != NRF_SUCCESS)
+          err_code++; 
+
+        if(sd_ble_gap_adv_start(m_advertising.adv_handle, APP_BLE_CONN_CFG_TAG) != NRF_SUCCESS)
+          err_code++; 
+
     }
    else
     {
         // 2. 폰 연결 모드 (CONNECT 버튼 살리기)
         advertising_beacon_name(setting->device_name);
-        advertising_beacon_start();
-        #if 0
-      // 라이브러리 기본 인터벌 세팅
-        m_advertising.adv_modes_config.ble_adv_fast_interval = 200 * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
-        
-        // ⭐ [핵심] 라이브러리 자체의 화이트리스트 활성화 플래그를 꺼둡니다 (기본값)
-        m_advertising.adv_modes_config.ble_adv_whitelist_enabled = false;
-        
-
-         if (whitelist_addr != NULL)
-         {
-             // 1. 스택에 화이트리스트 명단 등록
-             const ble_gap_addr_t* p_whitelist_addrs[1] = { whitelist_addr };
-             err_code = sd_ble_gap_whitelist_set(p_whitelist_addrs, 1);
-             APP_ERROR_CHECK(err_code);
-
-             // 2. ⭐ [치트키] 라이브러리 구조체 내부에 "나 광고 켤 때 화이트리스트 쓸 거야!" 라고 플래그를 켜줍니다.
-             // 이렇게 해두면 아래 ble_advertising_start 함수가 실행될 때 
-             // 내부적으로 알아서 filter_policy를 FP_FILTER_BOTH로 세팅해서 안전하게 광고를 켭니다.
-             m_advertising.adv_modes_config.ble_adv_whitelist_enabled = true; 
-         }
-        #endif
+        if(advertising_beacon_start() != NRF_SUCCESS)
+          err_code++;
 
         m_advertising.adv_modes_config.ble_adv_fast_interval = 100 * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED;
         
         // 연결 모드일 때는 기존 라이브러리 함수 그대로 사용
-        err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-        APP_ERROR_CHECK(err_code);
+        if(ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST) != NRF_SUCCESS)
+          err_code++;
+        
+    }
+    if(err_code)
+    {
+      error_set_flag(BLE_ERROR);
     }
 }
-#else
 
-void App_advertising_start(uint8_t data)
-{
-    #define BLE_UNIT_MS_NUM 8
-    #define BLE_UNIT_MS_DEN 5
-
-    NRF_LOG_INFO("\r\nSTART ADV %d\r\n",data);
-    tracker_setting_t* setting = Tracker_Get_Setting();
- 
-    if(data)
-    {
-       advertising_beacon_name(setting->beacon_name);
-      advertising_data_start();
-      m_advertising.adv_modes_config.ble_adv_fast_interval = setting->beacon_adv_interval * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
-      m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_NONCONNECTABLE_NONSCANNABLE_UNDIRECTED;
-    }
-    else
-    {
-       advertising_beacon_name(setting->device_name);
-      advertising_beacon_start();
-      m_advertising.adv_modes_config.ble_adv_fast_interval = 100 * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
-      m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED;
-    }
-
-    uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-    APP_ERROR_CHECK(err_code);
-}
-#endif
 void App_Peripheral_init(system_config_t* system_config)
 {
       system_config->app_peri_ble_event_handler = app_peri_ble_event_handler;

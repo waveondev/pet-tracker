@@ -72,6 +72,12 @@ static void db_discovery_init(void)
 
 static void nus_error_handler(uint32_t nrf_error)
 {
+    if (nrf_error == NRF_ERROR_RESOURCES)
+    {
+        // 버퍼가 찼으므로 리셋시키지 않고, 다음 틱이나 TX_COMPLETE 이벤트 후 재시도하도록 처리
+        NRF_LOG_WARNING("GATT Queue Full, retry later.");
+        return; // 또는 재시도 플래그 처리
+    }
     APP_ERROR_HANDLER(nrf_error);
 }
 
@@ -150,7 +156,7 @@ static void nus_c_init(void)
 /**@brief Function for handling Scanning Module events.
  */
 
- #include "app_flash.h"
+#include "app_flash.h"
 static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 {
     ret_code_t err_code;
@@ -183,31 +189,43 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
          } break;
        case NRF_BLE_SCAN_EVT_NOT_FOUND:
         {
-            const ble_gap_evt_adv_report_t * p_adv = p_scan_evt->params.p_not_found;
-            if (p_adv == NULL) break;
+           const ble_gap_evt_adv_report_t * p_adv = p_scan_evt->params.p_not_found;
+          if (p_adv == NULL || p_adv->data.p_data == NULL || p_adv->data.len == 0) break;
 
-            uint16_t data_offset = 0;
+          uint16_t parsed_name_len = 0;
+          uint16_t data_offset = 0;
 
-            uint16_t parsed_name_len = ble_advdata_search(p_adv->data.p_data,
-                                                          p_adv->data.len,
-                                                          &data_offset,
-                                                          BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME);
+          // 1. Complete Local Name 검색
+          data_offset = 0;
+          parsed_name_len = ble_advdata_search(p_adv->data.p_data,
+                                                        p_adv->data.len,
+                                                        &data_offset,
+                                                        BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME);
 
-            if (parsed_name_len == 0) {
-                data_offset = 0;
-                parsed_name_len = ble_advdata_search(p_adv->data.p_data,
-                                                     p_adv->data.len,
-                                                     &data_offset,
-                                                     BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME);
-            }
+          // 2. 실패 시 Short Local Name 검색
+          if (parsed_name_len == 0) {
+              data_offset = 0;
+              parsed_name_len = ble_advdata_search(p_adv->data.p_data,
+                                                            p_adv->data.len,
+                                                            &data_offset,
+                                                            BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME);
+          }
 
-            if (parsed_name_len == 0) {
-                break; 
-            }
+          // 이름이 없거나 길이가 정상이 아닌 경우 제외
+          if (parsed_name_len == 0 || parsed_name_len > 31) break;
+
+        // 3. 인덱스 오버플로우 안전성 체크 (포인터가 패킷 범위를 벗어나는지 확인)
+            if ((data_offset + parsed_name_len) > p_adv->data.len) break;
 
             uint8_t * p_device_name = &p_adv->data.p_data[data_offset];
 
-            const char * target_prefixes[4];
+            // 4. 안전한 출력 처리
+            uint8_t raw_name[32] = {0};
+            memcpy(raw_name, p_device_name, parsed_name_len);
+            raw_name[parsed_name_len] = '\0'; // 널 문자 추가
+
+            NRF_LOG_INFO("Parsed Name (len: %d) = %s", parsed_name_len, raw_name);
+            char * target_prefixes[4];
             target_prefixes[0] = setting->peripheral_1;
             target_prefixes[1] = setting->peripheral_2;
             target_prefixes[2] = setting->peripheral_3;
@@ -259,7 +277,7 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
                         {
                             device_detect[i].used = 1;
                             memcpy(&device_detect[i].peer_addr, addr, sizeof(ble_gap_addr_t));
-                            uint8_t name[30];
+                            uint8_t name[32] = {0};
                             memcpy(name,p_device_name,parsed_name_len);
                             NRF_LOG_INFO("filter = %s" , name);
                             device_detect[i].rssi = p_adv->rssi;
@@ -273,7 +291,6 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
          case NRF_BLE_SCAN_EVT_SCAN_TIMEOUT:
          {
              NRF_LOG_INFO("Scan timed out.\r\n");
-
          } break;
 
          default:
@@ -356,10 +373,14 @@ uint32_t cent_connect_peer(void)
            &device_detect[best_index].peer_addr,
            sizeof(ble_gap_addr_t));
     ret_code_t err_code;
-   
+       // 기존: &m_scan.scan_params 대신 사용
+    ble_gap_scan_params_t conn_scan_params = m_scan.scan_params;
+
+    // 연결 대기 타임아웃을 5초(500 * 10ms)로 별도 지정! (0이면 무제한 대기)
+    conn_scan_params.timeout = 1000;
     err_code = sd_ble_gap_connect(
                     &peer_addr,
-                    &m_scan.scan_params,
+                    &conn_scan_params,
                     &m_scan.conn_params,
                     APP_BLE_CONN_CFG_TAG
                     );

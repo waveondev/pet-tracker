@@ -121,6 +121,7 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/main.o: \
  ../config/app_rtc.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/time.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/sys/time.h \
+ ../config/app_qc.h ../config/app_wdg.h \
  ../../../../../../components/libraries/log/nrf_log.h \
  ../../../../../../components/libraries/log/src/nrf_log_internal.h \
  ../../../../../../components/libraries/log/nrf_log_types.h \

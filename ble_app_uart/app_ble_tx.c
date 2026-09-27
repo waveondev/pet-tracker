@@ -160,7 +160,7 @@ void sensor_ota_send(Motion_Packet_t* rx_packet)
     Motion_Packet.ota_res.cmd_type = 1;
      uint32_t bat = battery_percent_get();
     #if DFUMODE
-    if(bat >= 40 && rx_packet->ota_req.cmd_type == 1)
+    if(bat >= 35 && rx_packet->ota_req.cmd_type == 1)
     {
       Motion_Packet.ota_res.status = 0;
     }

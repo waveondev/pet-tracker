@@ -124,8 +124,7 @@ void Sensor_flash_set(uint32_t data)
     Retained_data.count++;
     Retained_data.data += data;
     
-    NRF_LOG_INFO(" Retained_data = %d - %d(%d)\n",
-            Retained_data.count, data, Retained_data.data);
+    NRF_LOG_INFO(" Retained_data = %d - %d(%d)\n",Retained_data.count, data, Retained_data.data);
     tracker_setting_t* setting = Tracker_Get_Setting();
     if(Retained_data.count >= setting->data_collect_sec/5)
     {

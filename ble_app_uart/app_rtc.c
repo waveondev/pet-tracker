@@ -15,7 +15,8 @@ void rtc_sync_init(void)
 
 void rtc_sync_set_time(Motion_Packet_t* Motion_Packet)
 {
-    uint32_t received_epoch = Motion_Packet->time_res.epoch_sec;
+    #define KST_OFFSET_SEC  (9 * 3600) // 9시간 (32,400초)
+    uint32_t received_epoch = Motion_Packet->time_res.epoch_sec + KST_OFFSET_SEC;
     // 현재 타이머 틱값과 맞물려 기준 시각을 업데이트
     m_base_rtc_ticks = app_timer_cnt_get();
     m_base_epoch = received_epoch;

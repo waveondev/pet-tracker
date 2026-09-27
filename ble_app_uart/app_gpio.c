@@ -108,6 +108,7 @@ void led_low_battery_stop(void)
 }
 void led_factory_start(void)
 {
+    factory_enable();
     led_set_RGB(0,0,1);
     m_led.factory = true;
     m_led.factory_blue_tick = 15;
@@ -122,8 +123,6 @@ void led_pairing_start(uint8_t mode)
 {
     paring_mode = mode;
  
-    led_set_RGB(1,0,0);
-
     m_led.pairing = true;
     m_led.paring_tick = 5;
 }
@@ -132,9 +131,11 @@ void led_pairing_stop(void)
 {
     m_led.pairing = false;
 }
-
+extern uint32_t error_flag ;
 static void led_turnoff_timer_handler(void *p_context)
 { 
+    if(error_flag)
+      return;
     if(m_led.power_en)
     {
         
@@ -163,6 +164,7 @@ static void led_turnoff_timer_handler(void *p_context)
     {
       if(m_led.factory_blue_tick)
       {
+
         m_led.factory_blue_tick--;
         led_set_RGB(0,0,1);
       }
@@ -179,9 +181,11 @@ static void led_turnoff_timer_handler(void *p_context)
       else
       {
         led_factory_stop();
-        //factory_enable();
+        //
         #if DFUMODE
-         ble_dfu_buttonless_bootloader_start_prepare();
+          ble_dfu_buttonless_bootloader_start_prepare();
+        #else
+          NVIC_SystemReset();
         #endif
       }
       return;
@@ -327,6 +331,7 @@ else
 #endif
 static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
+    ret_code_t err = NRF_SUCCESS;
 #if 1
     switch(pin)
     {
@@ -335,7 +340,7 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
             if (button_en)
             {
                 //app_timer_stop(m_button_timer);
-                 ret_code_t err = app_timer_stop(m_button_timer);
+                 err = app_timer_stop(m_button_timer);
                 NRF_LOG_INFO("timer stop err=%d", err);
                 #if 1
                 if(button_time == 0)
@@ -364,9 +369,13 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
             else
             {
                 button_time = 0;
-                  APP_ERROR_CHECK(app_timer_start(m_button_timer,
+                 err = app_timer_stop(m_button_timer);
+                  NRF_LOG_INFO("timer stop err=%d", err);
+                 err = app_timer_start(m_button_timer,
                         APP_TIMER_TICKS(1000),
-                        NULL));
+                        NULL);
+                NRF_LOG_INFO("timer start err=%d", err);
+
 
                 //NRF_LOG_INFO("PKEY_STAT_SW_PIN input2");
             }

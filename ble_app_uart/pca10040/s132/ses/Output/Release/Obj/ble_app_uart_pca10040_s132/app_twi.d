@@ -74,6 +74,10 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_twi.o: \
  ../../../../../../components/libraries/log/nrf_log_backend_interface.h \
  ../../../../../../components/libraries/log/nrf_log_default_backends.h \
  ../config/app_sensor.h ../config/app_gpio.h \
+ ../../../../../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.h \
+ ../../../../../../components/libraries/experimental_section_vars/nrf_section_iter.h \
+ ../../../../../../components/libraries/experimental_section_vars/nrf_section.h \
+ ../config/app_qc.h \
  ../../../../../../modules/nrfx/drivers/include/nrfx_gpiote.h \
  ../../../../../../modules/nrfx/hal/nrf_gpiote.h \
  ../../../../../../modules/nrfx/hal/nrf_gpio.h

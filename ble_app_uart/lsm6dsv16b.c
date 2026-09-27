@@ -18,6 +18,7 @@
 
 #include "lsm6dsv16b.h"
 #include "app_twi.h"
+#include "nrf_log.h"
 /**
   * @defgroup  LSM6DSV16B
   * @brief     This file provides a set of functions needed to drive the
