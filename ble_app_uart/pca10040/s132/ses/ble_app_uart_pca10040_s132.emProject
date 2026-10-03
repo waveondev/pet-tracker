@@ -51,6 +51,8 @@
     <configuration
       LIBRARY_IO_TYPE="RTT"
       Name="Release"
+      arm_linker_heap_size="3072"
+      arm_linker_stack_size="3072"
       c_preprocessor_definitions="NRF_DFU_TRANSPORT_BLE=1;DFUMODE=1;CLOCK_SOURSE_EXTERNAL=0"
       gcc_optimization_level="None"
       linker_section_placements_segments="uicr_bootloader_start_address RX 0x10001014 0x4" />

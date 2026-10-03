@@ -6291,7 +6291,7 @@
 // <e> WDT_ENABLED - nrf_drv_wdt - WDT peripheral driver - legacy layer
 //==========================================================
 #ifndef WDT_ENABLED
-#define WDT_ENABLED 0
+#define WDT_ENABLED 1
 #endif
 // <o> WDT_CONFIG_BEHAVIOUR  - WDT behavior in CPU SLEEP or HALT mode
  
@@ -6490,7 +6490,7 @@
 // <i> will fail.
 
 #ifndef APP_TIMER_CONFIG_OP_QUEUE_SIZE
-#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 10
+#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 16
 #endif
 
 // <q> APP_TIMER_CONFIG_USE_SCHEDULER  - Enable scheduling app_timer events to app_scheduler
@@ -7919,7 +7919,7 @@
 //==========================================================
 #ifndef NRF_LOG_BACKEND_RTT_ENABLED
 
-#if DFUMODE 
+#if 1//DFUMODE 
 #define NRF_LOG_BACKEND_RTT_ENABLED 0
 #else
 #define NRF_LOG_BACKEND_RTT_ENABLED 1
@@ -7956,7 +7956,7 @@
 // <e> NRF_LOG_ENABLED - nrf_log - Logger
 //==========================================================
 #ifndef NRF_LOG_ENABLED
-#if DFUMODE 
+#if 1 // DFUMODE 
 #define NRF_LOG_ENABLED 0
 #else
 #define NRF_LOG_ENABLED 1
@@ -12442,15 +12442,6 @@
 #ifndef NRF_BLE_GQ_QUEUE_SIZE
 #define NRF_BLE_GQ_QUEUE_SIZE 10
 #endif
-
-// <<< end of configuration section >>>
-
-#define FIRST_NAME "Wave"
-#define SECOND_NAME "_Tracker"
-
-
-#define FIRST_NAME "Wave"
-#define SECOND_NAME "_Tracker"
 
 // <<< end of configuration section >>>
 

@@ -20,7 +20,7 @@
 #include "app_sensor_flash.h"
 uint16_t fifo_get_size(void);
 uint32_t BLE_Send_byte(uint8_t* data, uint16_t len);
-uint32_t Sensor_Get_data(uint8_t* data, uint16_t len);
+uint32_t Sensor_data_read(uint8_t* data, uint16_t len);
 void sensor_flag_input(void);
 static Motion_Packet_t next_data;
 typedef struct 
@@ -43,7 +43,7 @@ typedef struct
 
 Sensor_RawData_t Sensor_RawData;
 
-#define DATA_SIZE 75
+#define DATA_SIZE 150
 
 
 
@@ -66,35 +66,11 @@ volatile bool debugmode_flag = false;
 #define LSM6DSV_GY_SENSITIVITY_2000DPS    0.070f
 #define LSM6DSV_GY_SENSITIVITY_4000DPS    0.140f
 
-static float XL_SENS = LSM6DSV_XL_SENSITIVITY_2G;
+static float XL_SENS = LSM6DSV_XL_SENSITIVITY_8G;
 static float GY_SENS = LSM6DSV_GY_SENSITIVITY_2000DPS;
 static uint32_t data_size = DATA_SIZE;
 
 #if  1// NORMAL
-
-static Sensor_Setting_t Sensor_value[] =
-{
-  {CTRL1,0x63},
-  #if GYRO
-  {CTRL2,0x53},
-  #endif
-
-  {CTRL9,0x20},
-  {FIFO_CTRL1,0},
-
- // {FIFO_CTRL2,0},
-
-  #if GYRO
-  {FIFO_CTRL3,0x33},
-  #else
-  {FIFO_CTRL3,0x03},
-  #endif
- // {FIFO_CTRL3,0x03},
-  {FIFO_CTRL4,0x01},
-  {INT1_CTRL,0x08}
-};
-
-
 
 static Sensor_Setting_t debug_Sensor_value[] =
 {
@@ -392,9 +368,13 @@ static Sensor_Setting_t debug_Sensor_value[] =
     {CTRL9,0x20},
     {FIFO_CTRL1,0},
 
-    {FIFO_CTRL3,0x55},
+    {FIFO_CTRL3,0x50},
     {FIFO_CTRL4,0x01},
     {INT1_CTRL,0x08}
+    #if 0
+
+
+    #endif
 };
 
 
@@ -416,6 +396,7 @@ void lsm6dsv_fifo_flush(uint8_t* fifo_buf, uint32_t data_len)
     }
 
 }
+extern void Motion_interrupt(void);
 void Sensor_update(void)
 {
   uint32_t total_activity_score = 0;
@@ -423,7 +404,7 @@ void Sensor_update(void)
 
   if(sensor_exfire|| nrf_gpio_pin_read(LSM_INT_PIN))
   {
-
+    Motion_interrupt();
     uint32_t data_len = (data_size *7);
     uint8_t *fifo_buf = calloc(1,data_len);
     if(fifo_buf == NULL)
@@ -452,29 +433,24 @@ void Sensor_update(void)
 
     if(fifo_status.fifo_th)
     {
-        total_activity_score = Sensor_Get_data(fifo_buf,data_len);
-        if(debugmode_flag == false)
-          Sensor_flash_set(total_activity_score);
-    }
-    else
-    {
-      // Embedded Function register access
-      uint8_t tx[2] = {0x01, 0x80};
-      I2C_Transmit(tx, 2);
-
-      // MLC1~4
-      uint8_t reg = 0x70;
-
-      I2C_Transmitreceive(&reg, 1, &Sensor_RawData.mlc[0], 4);
-
-        NRF_LOG_INFO("MLC1=%02X MLC2=%02X MLC3=%02X MLC4=%02X",\
-                     Sensor_RawData.mlc[0], Sensor_RawData.mlc[1], Sensor_RawData.mlc[2], Sensor_RawData.mlc[3]);
-      tx[1] = 0x00;
-      I2C_Transmit(tx, 2);
-
-
+        total_activity_score = Sensor_data_read(fifo_buf,data_len);
     }
 
+    // Embedded Function register access
+    uint8_t tx[2] = {0x01, 0x80};
+    I2C_Transmit(tx, 2);
+
+    // MLC1~4
+    uint8_t reg = 0x70;
+
+    I2C_Transmitreceive(&reg, 1, &Sensor_RawData.mlc[0], 4);
+      if(debugmode_flag == false)
+        Sensor_flash_set(Sensor_RawData.mlc[0]);
+      NRF_LOG_INFO("MLC1=%02X MLC2=%02X MLC3=%02X MLC4=%02X",\
+                   Sensor_RawData.mlc[0], Sensor_RawData.mlc[1], Sensor_RawData.mlc[2], Sensor_RawData.mlc[3]);
+    tx[1] = 0x00;
+    I2C_Transmit(tx, 2);
+    
     saadc_timer_handler(NULL);
     if(debugmode_flag)
     {
@@ -530,22 +506,6 @@ void Sensor_sleep(void)
 
 }
 
-static void sensor_normal_init(void)
-{
-    uint8_t buffer[2];
-      NRF_LOG_INFO("Sensor_value = %d", sizeof(Sensor_value));
-   for (int setup_size = 0;
-     setup_size < sizeof(Sensor_value)/sizeof(Sensor_value[0]);
-     setup_size++)
-    {
-        buffer[0] = Sensor_value[setup_size].regi;
-        if(FIFO_CTRL1 == Sensor_value[setup_size].regi)
-          buffer[1] = data_size;
-        else
-          buffer[1] = Sensor_value[setup_size].data;
-        I2C_Transmit(buffer, 2);
-    }
-}
 static void sensor_debug_init(void)
 {
     uint8_t buffer[2];
@@ -581,14 +541,9 @@ bool Sensor_init(bool debug)
     
    Sensor_sleep();
  
-    if(debug == true)
-    {
-        sensor_debug_init();
-    }
-    else 
-    {
-        sensor_normal_init();
-    }
+    sensor_debug_init();
+
+
     (void)fifo_get_size();
 
     twi_deinit();
@@ -716,7 +671,7 @@ uint32_t parse_fifo(uint8_t *buf, uint32_t len)
 }
 
 
-uint32_t Sensor_Get_data(uint8_t* data, uint16_t len)
+uint32_t Sensor_data_read(uint8_t* data, uint16_t len)
 {
      uint8_t reg = 0x78;
       uint8_t tag = 0;
@@ -763,6 +718,7 @@ void sensor_flag_input(void)
     uint8_t start_addr = next_data.lsm6_data_req_res.start_address;
     uint8_t tx_buf[17]; 
     bool send_flag = false;
+    uint8_t buffer[2];
     // 최대 16바이트 제한 초과 시 실행 안 함 (메모리 오염 방지)
     if (len == 0 || len > 16) return;
     twi_init();
@@ -772,7 +728,7 @@ void sensor_flag_input(void)
       case 0:
         I2C_Transmitreceive(&start_addr, 1, next_data.lsm6_data_req_res.data, len);
         send_flag = true;
-        twi_deinit();
+
       break;
       case 1:
         tx_buf[0] = start_addr;
@@ -781,27 +737,31 @@ void sensor_flag_input(void)
         // 단 한 번의 I2C 트랜잭션으로 (len + 1) 바이트 연속 전송
         I2C_Transmit(tx_buf, len + 1);
         send_flag = true;
-       twi_deinit();
+
       break;
       case 2:
-        twi_deinit();
-        debugmode_flag = true;
-        XL_SENS = LSM6DSV_XL_SENSITIVITY_8G;
-        GY_SENS = LSM6DSV_GY_SENSITIVITY_2000DPS;
         data_size = 2;
-        Sensor_init(true);
+        buffer[0] = FIFO_CTRL3;
+        buffer[1] = 0x55;
+        I2C_Transmit(buffer, 2); 
+        buffer[0] = FIFO_CTRL1;
+        buffer[1] = data_size;
+        I2C_Transmit(buffer, 2); 
+        debugmode_flag = true;
       break;
       case 3:
-        twi_deinit();
-        debugmode_flag = false;
-        XL_SENS = LSM6DSV_XL_SENSITIVITY_2G;
-        GY_SENS = LSM6DSV_GY_SENSITIVITY_2000DPS;
         data_size = DATA_SIZE;
-        Sensor_init(false);
+        buffer[0] = FIFO_CTRL3;
+        buffer[1] = 0x50;
+        I2C_Transmit(buffer, 2); 
+        buffer[0] = FIFO_CTRL1;
+        buffer[1] = data_size;
+        I2C_Transmit(buffer, 2);
+        debugmode_flag = false;
       break;
     }
 
-
+     twi_deinit();
     if(send_flag)
     {
       next_data.event_code = LSM6_DATA_RESPONSE;

@@ -10,20 +10,13 @@
 #include "nrf.h"
 #include "app_flash.h"
 
-// 1. [보완] 구조체 선언 시 정렬(Alignment) 속성 추가
-typedef struct {
-    uint16_t data;
-    uint8_t  reserved[6];
 
-} __attribute__((packed, aligned(4))) my_data_t; // 8바이트 크기 정렬 보장
-
-#define MOTION_DAY_SIZE      0x3000   // 
-#define TOTAL_DAYS           4       // 30일 순환
+#define MOTION_DAY_SIZE      0x9000   // 
+#define TOTAL_DAYS           6       // 30일 순환
 #define MOTION_END_ADDR      (FLASH_START_ADDR + (MOTION_DAY_SIZE * TOTAL_DAYS)) //
 
-// 하루에 저장되는 총 데이터 개수 (1분당 1개 * 24시간 = 1440개)
-#define LOGS_PER_DAY        1440
-#define DATA_SIZE_PER_DAY     (LOGS_PER_DAY * sizeof(my_data_t))
+#define LOGS_PER_DAY        34560
+#define DATA_SIZE_PER_DAY     (LOGS_PER_DAY * sizeof(uint8_t))
 
 static retained_data_t Retained_data;
 // 현재 플래시 주소 위치 및 전역 데이터 카운터
@@ -33,7 +26,6 @@ static uint32_t m_target_send_addr = FLASH_START_ADDR;
 static uint32_t m_current_send_addr = FLASH_START_ADDR;
 
 
-static uint32_t m_global_index = 0;
 
 
 retained_data_t* Sensor_Get_Seq(void)
@@ -45,13 +37,13 @@ retained_data_t* Sensor_Get_Seq(void)
 /**
  * @brief 현재 주소를 8바이트 증가시키고, 필요시 날짜 점프 및 30일 롤백을 수행하여 반환
  */
-uint32_t get_next_flash_addr(uint32_t addr)
+uint32_t get_next_flash_addr(uint32_t addr, uint8_t len)
 {
-    uint32_t next = addr + sizeof(my_data_t); // 8바이트 전진
+    uint32_t next = addr + len; // 8바이트 전진
     
     // 1. 하루치 마감(1440개 * 8바이트 = 11520바이트) 구역에 도달했는지 확인
     uint32_t offset_in_day = (next - FLASH_START_ADDR) % MOTION_DAY_SIZE;
-    if (offset_in_day >= (LOGS_PER_DAY * sizeof(my_data_t)))
+    if (offset_in_day >= (LOGS_PER_DAY * len))
     {
         // 16KB(0x4000) 경계의 다음 날 시작 주소로 점프
         uint32_t day_idx = (next - FLASH_START_ADDR) / MOTION_DAY_SIZE;
@@ -89,7 +81,7 @@ uint32_t calculate_total_send_count(void)
         uint32_t end_day = (end_addr - FLASH_START_ADDR) / MOTION_DAY_SIZE;
         
         // 하루당 768 바이트
-        padding_bytes = (end_day - start_day) * (MOTION_DAY_SIZE - (LOGS_PER_DAY * sizeof(my_data_t)));
+        padding_bytes = (end_day - start_day) * (MOTION_DAY_SIZE - (LOGS_PER_DAY * sizeof(uint8_t)));
     }
     else
     {
@@ -105,7 +97,7 @@ uint32_t calculate_total_send_count(void)
         uint32_t second_part_days = end_day; // 0x40000(0일차)부터 시작하므로 end_day 값이 곧 지난 날짜 수
         
         uint32_t total_padding_days = first_part_days + second_part_days;
-        padding_bytes = total_padding_days * (MOTION_DAY_SIZE - (LOGS_PER_DAY * sizeof(my_data_t)));
+        padding_bytes = total_padding_days * (MOTION_DAY_SIZE - (LOGS_PER_DAY * sizeof(uint8_t)));
     }
 
     // 2. 전체 바이트에서 짜투리 패딩을 빼면 순수 데이터 바이트만 남음
@@ -113,24 +105,25 @@ uint32_t calculate_total_send_count(void)
     uint32_t pure_data_bytes = total_bytes - padding_bytes;
 
     // 3. 8바이트로 나누면 정확한 데이터 개수(Count)가 나옵니다.
-    return (pure_data_bytes / sizeof(my_data_t));
+    return (pure_data_bytes / sizeof(uint8_t));
 }
 
-void Sensor_flash_set(uint32_t data)
+void Sensor_flash_set(uint8_t data)
 {
-    my_data_t my_data;
-
-    memset(&my_data, 0, sizeof(my_data_t));
-    Retained_data.count++;
-    Retained_data.data += data;
+    static uint8_t my_data[4];
+    static uint8_t index = 0;
     
-    NRF_LOG_INFO(" Retained_data = %d - %d(%d)\n",Retained_data.count, data, Retained_data.data);
+
+    my_data[index] = data;
+
+    index++;
+
     tracker_setting_t* setting = Tracker_Get_Setting();
-    if(Retained_data.count >= setting->data_collect_sec/5)
+    if(index > 3)
     {
-  
+        index = 0;
         // 1. 머리(current)가 다음에 이동할 예상 주소를 똑똑한 헬퍼 함수로 계산! (날짜 점프 포함)
-        uint32_t next_addr = get_next_flash_addr(m_current_addr);
+        uint32_t next_addr = get_next_flash_addr(m_current_addr, 4);
         // 머리가 꼬리를 덮으려 하면 가장 오래된 하루(0x3000)를 삭제
         if ((next_addr == m_last_send_addr) &&
             (m_current_addr != m_last_send_addr))
@@ -145,12 +138,11 @@ void Sensor_flash_set(uint32_t data)
             
             NRF_LOG_WARNING("Ring buffer full! Dropped 1 whole day. New last_send_addr: 0x%08x", m_last_send_addr);
         }
-        my_data.data = (uint16_t)(Retained_data.data / Retained_data.count);
-        NRF_LOG_INFO("Sensor_flash_set my_data = %d \n",
-                my_data.data);
+
+        NRF_LOG_INFO("flash = %p my_data = %d %d %d %d  \n",m_current_addr, my_data[0],my_data[1],my_data[2],my_data[3]);
         // 3. 플래시 쓰기
-        ret_code_t rc = flash_write(m_current_addr, (uint8_t*)&my_data, sizeof(my_data_t));
-        
+        ret_code_t rc = flash_write(m_current_addr, (uint8_t*)my_data, sizeof(my_data));
+       
         if (rc == NRF_SUCCESS)
         {
             // ★ [정답] 똑똑하게 계산해 둔 next_addr를 그대로 현재 주소에 덮어씌움!
@@ -158,37 +150,34 @@ void Sensor_flash_set(uint32_t data)
         }
         
         // 데이터 카운트만 올려주고 끝! (아래쪽에 있던 중복 점프 로직은 싹 삭제)
-        m_global_index++;
-        Retained_data.data = 0;
-        Retained_data.count = 0;
+
     }
 }
 
 
-// ✅ 수정된 sensor_get_data 함수
+static uint16_t max_idx = 0;
 uint8_t sensor_get_data(Motion_Packet_t* data)
 {
     uint8_t pack_idx = 0;
-    pack_data* motion_ptr = &data->motion_data.pack_data_0;
-    my_data_t my_data;
+    
+    uint8_t* motion_ptr = data->motion_data.MLC_data;
+    uint8_t my_data;
 
 // 이미 목표 주소에 도달했다면 바로 종료
     if (m_current_send_addr == m_target_send_addr) {
         return 0;
     }
-    while ((pack_idx < 9) && (m_current_send_addr != m_target_send_addr))
+    while ((pack_idx < 18) && (m_current_send_addr != m_target_send_addr))
     {
-        flash_read(m_current_send_addr, (uint8_t*)&my_data, sizeof(my_data_t));
+        flash_read(m_current_send_addr, (uint8_t*)&my_data, sizeof(uint8_t));
 
-        // 정상 데이터 매핑
-        motion_ptr[pack_idx].bit.data = (uint16_t)(my_data.data & 0x3FFF);
-        if (motion_ptr[pack_idx].bit.data > 200)       motion_ptr[pack_idx].bit.type = 0x02;
-        else if (motion_ptr[pack_idx].bit.data > 80)   motion_ptr[pack_idx].bit.type = 0x01;
-        else                                           motion_ptr[pack_idx].bit.type = 0x00;
+        motion_ptr[pack_idx] = my_data;
 
         pack_idx++;  
-        
-        uint32_t next_addr = get_next_flash_addr(m_current_send_addr);
+        max_idx++;
+
+
+        uint32_t next_addr = get_next_flash_addr(m_current_send_addr, 1);
         
         // [안전장치] 다음 주소가 목표 주소를 넘어서거나 오버플로우 발생 시 중단
         if (next_addr == m_current_send_addr) { 
@@ -196,8 +185,10 @@ uint8_t sensor_get_data(Motion_Packet_t* data)
             m_current_send_addr = m_target_send_addr; // 강제 종료 조건 달성
             break;
         }
-        
+
         m_current_send_addr = next_addr;
+        if(max_idx >= 100)
+          return 0;
     }
 
     if ((pack_idx > 0) && (m_current_send_addr != m_target_send_addr)) 
@@ -233,6 +224,7 @@ void sensing_ack_input(void)
 
 void sensing_send_init(void)
 {
+    max_idx = 0;
     m_target_send_addr = m_current_addr;
     m_current_send_addr = m_last_send_addr;
     NRF_LOG_INFO("m_target_send_addr = %08x m_current_addr = %08x\n", m_target_send_addr,m_current_addr);

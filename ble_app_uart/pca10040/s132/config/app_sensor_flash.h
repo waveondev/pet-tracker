@@ -40,15 +40,6 @@ typedef struct {
 } retained_data_t;
 
 
-
-typedef union {
-    struct {
-        uint16_t data : 14;  
-        uint16_t type : 2;  
-    } bit;                   
-    uint16_t word;           
-} pack_data;
-
 typedef union {
       struct {
         uint8_t Bat_Status : 2;  
@@ -68,22 +59,14 @@ typedef struct {
   {
       struct
       {
-        uint8_t interval;
-        uint16_t total_points;
-        uint16_t padding[8];
+        uint32_t total_points;
+        uint8_t send_points;
+        uint16_t padding[7];
       } motion_req;
       struct
       {
         uint8_t seq;
-        pack_data pack_data_0;
-        pack_data pack_data_1;
-        pack_data pack_data_2;
-        pack_data pack_data_3;
-        pack_data pack_data_4;
-        pack_data pack_data_5;
-        pack_data pack_data_6;
-        pack_data pack_data_7;
-        pack_data pack_data_8;
+        uint8_t MLC_data[18]; 
       } motion_data;
       struct
       {
@@ -183,7 +166,7 @@ typedef struct {
 
 
 retained_data_t* Sensor_Get_Seq(void);
-void Sensor_flash_set(uint32_t data);
+void Sensor_flash_set(uint8_t data);
 void sensor_send_timer_init(void);
 
 #endif

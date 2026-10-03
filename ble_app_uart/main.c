@@ -120,21 +120,34 @@ NRF_BLE_GATT_DEF(m_gatt);                                                       
 static system_config_t system_config; 
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
-static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint16_t next_time);
-void pairing_set(uint8_t state);
+static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint32_t next_time);
+void pairing_set(void);
 static uint8_t sleep_count = 0;
 APP_TIMER_DEF(m_role_timer);
-#define TIMER_15_MIN_INTERVAL   (15 * 60 * 1000)
+#define TIMER_MINUTE_INTERVAL   (60 * 1000)
+#define TIMER_15_MIN_INTERVAL   (15 * TIMER_MINUTE_INTERVAL)
+#define TIMER_REGI_MIN_INTERVAL   (2 *TIMER_MINUTE_INTERVAL)
+
 
 // 2. 타이머 ID 변수 선언
 APP_TIMER_DEF(m_15min_timer_id);
 APP_TIMER_DEF(m_paring_timer);
+APP_TIMER_DEF(m_regi_timer);
+APP_TIMER_DEF(m_connection_timer);
+APP_TIMER_DEF(m_not_conn_timer);
+
+
 void Sleep_Set(void);
+void timer_regi_stop_start(uint8_t state);
 static uint8_t Next_state;
 static void app_timers_stop(void);
 static void app_timers_start(void);
 void timer_15min_stop_start(uint32_t next_time, uint8_t state);
 int8_t get_rssi(void);
+void timer_connection_stop_start(uint8_t state);
+void timer_not_conn_stop_start(uint8_t state);
+static uint32_t not_conn_time = 0;
+
 typedef enum
 {
     ROLE_BOOT_UP,
@@ -302,6 +315,10 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         }
         break;
         case BLE_GAP_EVT_CONNECTED:
+            not_conn_time = 0;
+            timer_not_conn_stop_start(false);
+            timer_regi_stop_start(0);
+            timer_connection_stop_start(true);
             comunication_connect_event();
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;   
            
@@ -334,13 +351,13 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             NRF_LOG_INFO("Disconnected %d" ,p_ble_evt->evt.gap_evt.params.disconnected.reason);
             uint16_t conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
 
-
+            timer_connection_stop_start(false);
             if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
             {
                 sd_ble_gap_rssi_stop(m_conn_handle);
             }
             app_timers_start();
-            pairing_set(1);
+            pairing_set();
             timer_15min_stop_start(0, 0);
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
@@ -444,7 +461,7 @@ static void gatt_init(void)
 {
     ret_code_t err_code;
 
-err_code = nrf_ble_gatt_init(&m_gatt, gatt_evt_handler);
+    err_code = nrf_ble_gatt_init(&m_gatt, gatt_evt_handler);
     APP_ERROR_CHECK(err_code);
 
     // 2. Peripheral(nRF52)의 최대 수신 MTU 상한선을 NRF_SDH_BLE_GATT_MAX_MTU_SIZE(247)로 강제 지정
@@ -528,12 +545,21 @@ static void paring_timer_handler(void * p_context)
 {
     tracker_setting_t* setting = Tracker_Get_Setting();
     m_paring_state = Next_state;
+    uint32_t peripheral_time = 0;
+    if(not_conn_time > 1800)
+      peripheral_time = 300000;
+    else if(not_conn_time > 600)
+      peripheral_time = 60000;
+    else if(not_conn_time > 180)
+      peripheral_time = 20000;    
+    else
+      peripheral_time = 10000;
     switch (m_paring_state)
     {
       case PARING_CENTRAL_SCAN:
       {
             led_pairing_start(CENTRAL_CONNECT);
-                        App_advertising_start(1,0);   
+                        App_advertising_start(NULL,1,0);   
             App_scan_start();
             Paring_Timer_Set(PARING_CENTRAL_SCAN_END,1,10000);
       }break;
@@ -554,39 +580,20 @@ static void paring_timer_handler(void * p_context)
       {
             BLE_ALL_Disconnect();
             led_pairing_start(PERIPHERAL_CONNECT);
-            App_advertising_start(0,0);
-            Paring_Timer_Set(PARING_SLEEP, 1,10000);
+            App_advertising_start(NULL, 0,0);
+            Paring_Timer_Set(PARING_SLEEP, 1,peripheral_time);
       }break;
       case PARING_SLEEP:
       {
             App_advertising_stop();
             led_pairing_stop();
             connect_fail_event();
-            //sleep_count++;
-            //if(sleep_count >= setting->gateway_fail_threshold)
             {
-                //m_role_state = ROLE_SLEEP;
-            }
-           // else
-            {
-                Paring_Timer_Set(PARING_CENTRAL_SCAN, 1,10000);
+                Paring_Timer_Set(PARING_CENTRAL_SCAN, 1,100);
             }
       }break;
         
     }
-}
-// 3. 15분마다 실행될 콜백 함수
-static void timer_15min_timeout_handler(void * p_context)
-{ 
-    int8_t rssi_dbm;
-    NRF_LOG_INFO("15 Minutes Timer Expired! Doing task...");
-    if(m_conn_handle != BLE_CONN_HANDLE_INVALID)
-       rssi_dbm = get_rssi();
-    health_data_send(NULL, rssi_dbm);
-
-
-
-    timer_15min_stop_start(TIMER_15_MIN_INTERVAL,1);
 }
 static void role_timer_handler(void * p_context)
 {
@@ -612,7 +619,7 @@ static void role_timer_handler(void * p_context)
             m_role_state = ROLE_PAIRING_CONNECT;
         break;
         case ROLE_PAIRING_CONNECT:
-            App_advertising_start(1,0);
+            App_advertising_start(NULL, 1,0);
             app_timers_stop();
             m_role_state = ROLE_SLEEP;
         case ROLE_SLEEP:
@@ -624,28 +631,38 @@ static void role_timer_handler(void * p_context)
 
 }
 
-#include "SEGGER_RTT.h"
-static void rtt_timer_handler(void * p_context)
-{
-#if 0
-    int ch;
-    ret_code_t err_code;
-    uint16_t len = 1;
-    uint32_t ret_val;
-    while ((ch = SEGGER_RTT_GetKey()) >= 0)
+// 3. 15분마다 실행될 콜백 함수
+static void timer_15min_timeout_handler(void * p_context)
+{ 
+    int8_t rssi_dbm;
+    NRF_LOG_INFO("15 Minutes Timer Expired! Doing task...");
+    if(m_conn_handle != BLE_CONN_HANDLE_INVALID)
+       rssi_dbm = get_rssi();
+    health_data_send(NULL, rssi_dbm);
+    timer_15min_stop_start(TIMER_15_MIN_INTERVAL,1);
+}
+
+// 3. 15분마다 실행될 콜백 함수
+static void timer_regi_timeout_handler(void * p_context)
+{ 
+  NVIC_SystemReset();
+}
+// 3. 15분마다 실행될 콜백 함수
+static void timer_conn_timeout_handler(void * p_context)
+{ 
+    if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
     {
-      //  NRF_LOG_INFO("RX: %c", (char)ch);
-      switch (m_role_state)
-      {
-        case ROLE_PERI_STOP:
-          system_config.app_peri_data_send_handler((char*)&ch,len,m_conn_handle);
-        break;
-        case ROLE_CENT_STOP:
-          system_config.app_cent_data_send_handler((char*)&ch,len,m_conn_handle);
-        break;
-      }
+        sd_ble_gap_disconnect(
+            m_conn_handle,
+            BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION
+        );
     }
-#endif
+}
+
+// 3. 15분마다 실행될 콜백 함수
+static void timer_not_conn_timeout_handler(void * p_context)
+{ 
+    not_conn_time++;
 }
 
 
@@ -665,29 +682,7 @@ uint32_t BLE_Send_byte(uint8_t* data, uint16_t len)
     NRF_LOG_INFO("BLE_Send_byte = %d ",err_code);
     return err_code;
 }
-#if 0
-static void sleep_timer_handler(void * p_context)
-{
-    if(Sleep_Enable == 0)
-      return;
-    #if NRF_LOG_ENABLED
-    NRF_LOG_FLUSH();
-    #endif
-    twi_deinit();
-    flash_sleep_wait();
-    // ★ 2. 플래시 메모리가 아직 무언가를 쓰고(Busy) 있다면 끝날 때까지 대기합니다.
-    // (nrf_fstorage_is_busy 내부 플래시 모듈에 맞춰 함수를 사용하세요)
 
-    while (nrf_fstorage_is_busy(NULL))
-    {        
-        // SoftDevice가 이벤트를 처리하고 플래시 동작을 완료할 수 있도록 틈을 줍니다.
-        (void)sd_app_evt_wait(); 
-    }
-    // 4. 이제 fstorage까지 완벽히 끝났으므로 조건문 없이 '무조건' 안전하게 Sleep 진입!
-
-    nrf_system_off_mode();
-}
-#endif
 
 /**@brief Function for initializing the timer module.
  */
@@ -704,6 +699,57 @@ void timer_15min_stop_start(uint32_t next_time, uint8_t state)
         NRF_LOG_INFO("15-Minute Timer Started.");
     }
 }
+
+
+/**@brief Function for initializing the timer module.
+ */
+void timer_regi_stop_start(uint8_t state)
+{
+    uint32_t err_code;
+    uint32_t timer_tick = APP_TIMER_TICKS(TIMER_REGI_MIN_INTERVAL);
+    app_timer_stop(m_regi_timer);
+    if(state)
+    {
+        err_code = app_timer_start(m_regi_timer, timer_tick, NULL);
+        APP_ERROR_CHECK(err_code);
+
+        NRF_LOG_INFO("regi Timer Started.");
+    }
+}
+
+void timer_connection_stop_start(uint8_t state)
+{
+    uint32_t err_code;
+    uint32_t timer_tick = APP_TIMER_TICKS(TIMER_15_MIN_INTERVAL);
+    app_timer_stop(m_connection_timer);
+    if(state)
+    {
+        err_code = app_timer_start(m_connection_timer, timer_tick, NULL);
+        APP_ERROR_CHECK(err_code);
+
+        NRF_LOG_INFO("connection Timer Started.");
+    }
+}
+
+
+/**@brief Function for initializing the timer module.
+ */
+void timer_not_conn_stop_start(uint8_t state)
+{
+    uint32_t err_code;
+    uint32_t timer_tick = APP_TIMER_TICKS(1000);
+    app_timer_stop(m_not_conn_timer);
+    if(state)
+    {
+        err_code = app_timer_start(m_not_conn_timer, timer_tick, NULL);
+        APP_ERROR_CHECK(err_code);
+
+        NRF_LOG_INFO("not conn Timer Started.");
+    }
+}
+
+
+
 static void timers_init(void)
 {
     ret_code_t err_code = app_timer_init();
@@ -724,9 +770,27 @@ static void timers_init(void)
                                 timer_15min_timeout_handler);
 
     APP_ERROR_CHECK(err_code);    
+
+    err_code = app_timer_create(&m_regi_timer,
+                                APP_TIMER_MODE_SINGLE_SHOT,
+                                timer_regi_timeout_handler);
+
+    APP_ERROR_CHECK(err_code);    
+
+    err_code = app_timer_create(&m_connection_timer,
+                                APP_TIMER_MODE_SINGLE_SHOT,
+                                timer_conn_timeout_handler);
+
+    APP_ERROR_CHECK(err_code);    
+    err_code = app_timer_create(&m_not_conn_timer,
+                                APP_TIMER_MODE_REPEATED,
+                                timer_not_conn_timeout_handler);
+
+    APP_ERROR_CHECK(err_code);    
+    
     sensor_tx_timer_init();
 }
-static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint16_t next_time)
+static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint32_t next_time)
 {
   uint32_t timer_tick = APP_TIMER_TICKS(next_time);
 
@@ -752,26 +816,22 @@ void BLE_ALL_Disconnect(void)
     peri_disconnect_peer();
     cent_disconnect_peer();
 }
-void pairing_set(uint8_t state)
+void Regimode_set(void)
 {
-    #define CENTRAL_PAIRING 1
-    #define PERIPHERAL_PAIRING 2
-    #define PAIRING_STOP 0
-
     BLE_ALL_Disconnect();
-    switch(state)
-    {
-      case CENTRAL_PAIRING:
-            m_role_state = ROLE_PAIRING_CENTRAL;
-      break;
-      case PERIPHERAL_PAIRING:
-
-            m_role_state = ROLE_PAIRING_PERIPHERAL;
-      break;
-      default:
-            Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
-      break;
-    }
+    
+    Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
+    m_role_state = ROLE_BOOT_UP;
+    timer_regi_stop_start(true);
+    led_regi_start();
+    App_advertising_start("T100-R-Tracker",0,0);
+}
+  
+void pairing_set(void)
+{
+    BLE_ALL_Disconnect();
+    m_role_state = ROLE_PAIRING_CENTRAL;
+    timer_not_conn_stop_start(true);
 }
 
 /**@brief Function for starting advertising.
@@ -796,8 +856,6 @@ static void app_timers_stop(void)
 void Sleep_Set(void)
 {
     app_timers_stop();
-    //gpio_timer_stop();
-    //pairing_set(0);
     power_en_down();
     NRF_LOG_INFO("sleep start\r\n");
     m_role_state = ROLE_SLEEP;
@@ -899,7 +957,7 @@ int main(void)
 {
     bool erase_bonds;
         uint32_t                  err_code;
-#if DFUMODE
+#if 1
     APP_ERROR_CHECK(ble_dfu_buttonless_async_svci_init());
 
 
@@ -920,7 +978,9 @@ int main(void)
     //rtc_sync_init();
     gpio_init();
 #if 1
-    //wdt_init();
+#if !DEBUG
+    wdt_init();
+#endif
    // saadc_init();
     app_qc_timer_create();
     saadc_timer_handler(NULL);
@@ -941,7 +1001,7 @@ int main(void)
     #endif
 #endif
     #if DEBUG
-    pairing_set(1);
+    pairing_set();
     #endif
     for (;;)
     {

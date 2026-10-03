@@ -32,7 +32,7 @@ static void power_failure_warning_init(void)
     // VDD가 약 2.7V 이하로 내려가면 POFWARN 이벤트 발생
 
     
-    sd_power_pof_enable(NRF_POWER_POFTHR_V28);
+    sd_power_pof_enable(NRF_POWER_POFTHR_V26);
     // POWER_CLOCK IRQ 활성화
    // NVIC_ClearPendingIRQ(POWER_CLOCK_IRQn);
    // NVIC_SetPriority(POWER_CLOCK_IRQn, 6);
@@ -66,7 +66,7 @@ void wdt_init(void)
 
     // 2. 타임아웃 시간 설정 (단위: ms) - 예: 5초(5000ms)
     // CPU Sleep 중에도 WDT가 카운트하도록 RUN_SLEEP 설정
-    config.reload_value = 5000;
+    config.reload_value = 10000;
     config.behaviour    = NRF_WDT_BEHAVIOUR_RUN_SLEEP;
 
     // 3. WDT 드라이버 초기화

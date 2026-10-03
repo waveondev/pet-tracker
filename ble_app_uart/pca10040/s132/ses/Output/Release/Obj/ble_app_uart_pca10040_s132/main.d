@@ -133,6 +133,4 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/main.o: \
  ../config/app_central_con.h ../config/app_gpio.h ../config/app_adc.h \
  ../config/app_twi.h ../config/app_sensor_flash.h ../config/app_ble_tx.h \
  ../config/app_sensor_flash.h ../config/app_sensor.h \
- ../../../../../../external/segger_rtt/SEGGER_RTT.h \
- ../../../../../../external/segger_rtt/SEGGER_RTT_Conf.h \
  ../../../../../../components/ble/ble_services/ble_dfu/ble_dfu.h

@@ -320,7 +320,10 @@ static uint32_t advertising_beacon_start(void)
 }
 
 
-void App_advertising_start(uint8_t data,ble_gap_addr_t* whitelist_addr)
+
+
+
+void App_advertising_start(uint8_t* Name, uint8_t data,ble_gap_addr_t* whitelist_addr)
 {
     #define BLE_UNIT_MS_NUM 8
     #define BLE_UNIT_MS_DEN 5
@@ -328,11 +331,12 @@ void App_advertising_start(uint8_t data,ble_gap_addr_t* whitelist_addr)
     NRF_LOG_INFO("\r\nSTART ADV %d\r\n",data);
     tracker_setting_t* setting = Tracker_Get_Setting();
     uint32_t err_code = 0; // 에러 코드 변수 추가
- 
+    if(Name == NULL)
+      Name = setting->device_name;
     if(data)
     {
         // 1. 순수 비콘 모드 (CONNECT 버튼 없애기)
-        advertising_beacon_name(setting->device_name);
+        advertising_beacon_name(Name);
         if(advertising_data_start() != NRF_SUCCESS)
           err_code++;
         
@@ -350,7 +354,7 @@ void App_advertising_start(uint8_t data,ble_gap_addr_t* whitelist_addr)
    else
     {
         // 2. 폰 연결 모드 (CONNECT 버튼 살리기)
-        advertising_beacon_name(setting->device_name);
+        advertising_beacon_name(Name);
         if(advertising_beacon_start() != NRF_SUCCESS)
           err_code++;
 

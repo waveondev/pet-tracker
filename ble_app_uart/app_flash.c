@@ -131,8 +131,10 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
     if ((addr % FLASH_PAGE_SIZE) == 0)
     {
         NRF_LOG_INFO("Page boundary detected. Erasing 4KB at: 0x%08x", addr);
-        
-        // 데이터를 쓰기 전 4KB 페이지를 미리 지웁니다.
+        NRF_LOG_INFO("FS start = 0x%08X", my_fstorage.start_addr);
+        NRF_LOG_INFO("FS end   = 0x%08X", my_fstorage.end_addr);
+        NRF_LOG_INFO("erase    = 0x%08X", addr);
+        // 데이터를 쓰기 전 4KB 페이지를 미리 지웁니다.'
         rc = nrf_fstorage_erase(&my_fstorage, addr, 1, NULL);
         if (rc != NRF_SUCCESS)
         {
@@ -160,6 +162,7 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
 
 ret_code_t flash_read(uint32_t addr, uint8_t* data, uint16_t len)
 {
+#if 0
 // 1. 주소 범위 예외 처리 예시 (설정한 범위를 벗어나면 에러 리턴)
     if (addr < FLASH_START_ADDR || (addr + len) > FLASH_END_ADDR)
     {
@@ -175,6 +178,32 @@ ret_code_t flash_read(uint32_t addr, uint8_t* data, uint16_t len)
     }
     NRF_LOG_INFO("read at 0x%08x", addr);
     return rc;
+#else
+    if (data == NULL || len == 0)
+    {
+        return NRF_ERROR_INVALID_PARAM;
+    }
+
+    // Flash 영역 범위 확인
+    if (addr < FLASH_START_ADDR ||
+        ((uint64_t)addr + len) > FLASH_END_ADDR)
+    {
+        NRF_LOG_ERROR("Read address out of bounds: 0x%08x (len: %d)",
+                      addr, len);
+        return NRF_ERROR_INVALID_ADDR;
+    }
+
+    // 1바이트씩 직접 Flash에서 읽기
+    for (uint16_t i = 0; i < len; i++)
+    {
+        data[i] = *(volatile uint8_t *)(addr + i);
+    }
+
+    NRF_LOG_INFO("Flash read: addr=0x%08x len=%d", addr, len);
+
+    return NRF_SUCCESS;
+#endif
+
 }
 static bool factory_flag = false;
 static bool setting_flag = false;

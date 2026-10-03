@@ -40,6 +40,7 @@
 #include "app_ble_tx.h"
 #include "nrfx_gpiote.h"
 #include "app_sensor.h"
+#include "app_wdg.h"
 APP_TIMER_DEF(m_sensor_timer);
 APP_TIMER_DEF(m_redled_timer);
 APP_TIMER_DEF(m_blueled_timer);
@@ -426,20 +427,26 @@ void error_set_flag(uint32_t flag)
     break;
   }
 }
-
+uint8_t Motion_gpio_timeout = 5;
+void Motion_interrupt(void)
+{
+    Motion_gpio_timeout = 5;
+}
 
 static void sensor_timer_handler(void * p_context)
 {
 
     uint32_t battery = battery_voltage_get();
-
+    
     if(battery < 4300 && battery > 3400)
     {
     
     }
     else
       error_set_flag(ADC_ERROR);
-
+    Motion_gpio_timeout--;
+    if(Motion_gpio_timeout == 0)
+        error_set_flag(MOTION_ERROR);
 }
 
 static void QC_RED_timer_handler(void * p_context)
@@ -490,8 +497,8 @@ void app_qc_mode(void)
   app_qc_gpio_init();
 
   app_qc_timer_create();
-  saadc_init();
-
+  //saadc_init();
+  wdt_init();
   if(flash_init() != 0)
     error_set_flag(FLASH_ERROR);
 
@@ -499,10 +506,10 @@ void app_qc_mode(void)
   if(Sensor_init(false) == false)
     error_set_flag(MOTION_ERROR);
     
-
+  saadc_timer_handler(NULL);
   Sensor_update();
   BLE_Init();
-  App_advertising_start(0,0);
+  App_advertising_start("T100-QC", 0,0);
 
   err_code = app_timer_create(&m_sensor_timer,\
                           APP_TIMER_MODE_REPEATED,\

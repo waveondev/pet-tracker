@@ -225,6 +225,12 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
             raw_name[parsed_name_len] = '\0'; // 널 문자 추가
 
             NRF_LOG_INFO("Parsed Name (len: %d) = %s", parsed_name_len, raw_name);
+
+
+
+
+
+
             char * target_prefixes[4];
             target_prefixes[0] = setting->peripheral_1;
             target_prefixes[1] = setting->peripheral_2;
@@ -245,11 +251,23 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
                 {
                     if (memcmp(p_device_name, target_prefixes[k], prefix_len) == 0)
                     {
-                        is_matched = true;
+
+                        uint16_t offset = 0;
+
+                        uint16_t len = ble_advdata_search(
+                            p_adv->data.p_data,
+                            p_adv->data.len,
+                            &offset,
+                            BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA
+                        );
+                        if(p_adv->data.p_data[offset + 2] == 0x01)
+                            is_matched = true;
+
                         break;
                     }
                 }
             }
+
 
             if (is_matched)
             {
@@ -455,9 +473,11 @@ static void scan_init(void)
     nrf_ble_scan_init_t scan_init = {0};
  
     scan_init.conn_cfg_tag    = 0;
+    m_scan.scan_params.active = 1;
     err_code = nrf_ble_scan_init(&m_scan,
                                  &scan_init,
                                  scan_evt_handler);
+
 
     APP_ERROR_CHECK(err_code);
 }

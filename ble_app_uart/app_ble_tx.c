@@ -24,7 +24,7 @@ void sensing_send_init(void);
 void sensing_ack_input(void);
 #define TRACKER_MAJOR 1
 #define TRACKER_MINOR 1
-#define TRACKER_PATCH 1
+#define TRACKER_PATCH 2
 static volatile uint32_t g_system_uptime_sec = 0;
 static void uptime_timer_handler(void * p_context)
 {
@@ -109,20 +109,19 @@ void sensor_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
 
     sensing_send_init();
     Motion_Packet.event_code = MOTION_START_RESPONSE;
-    Motion_Packet.motion_req.interval = setting->data_collect_sec;
-// 1. 계산된 포인트 수 가져오기
-    uint32_t total = calculate_total_send_count();
 
-    // 2. 0xFF 기준 제한 (255개 패킷 * 9 = 2295 포인트)
-    if (total > (9 * 0x100)) {
-        total = 9 * 0x100;
-    }
-    Motion_Packet.motion_req.total_points = total;
+// 1. 계산된 포인트 수 가져오기
+    Motion_Packet.motion_req.total_points = calculate_total_send_count();
+
+    if(Motion_Packet.motion_req.total_points > 100)
+      Motion_Packet.motion_req.send_points = 100;
+    else 
+      Motion_Packet.motion_req.send_points = Motion_Packet.motion_req.total_points;
 
     if(m_is_pack_timer_running == false)
     {
         uint32_t err_code = BLE_Send_byte((uint8_t*)&Motion_Packet,sizeof(Motion_Packet));
-        if(err_code == NRF_SUCCESS && Motion_Packet.motion_req.total_points != 0)
+        if(err_code == NRF_SUCCESS && Motion_Packet.motion_req.send_points != 0)
         {
             send_seq = 0;
             m_is_pack_timer_running = true;

@@ -12,7 +12,7 @@
 #include "app_qc.h"
 #include "app_flash.h"
 #include "app_ble_tx.h"
-void pairing_set(uint8_t state);
+
 void paring_toggle(void);
 
 void Sleep_Set(void);
@@ -21,7 +21,9 @@ static uint8_t paring_mode = 0;
 APP_TIMER_DEF(m_button_timer);
 APP_TIMER_DEF(m_led_timer);
 static volatile uint32_t button_time = 0;
-
+void pairing_set(void);
+void regi_toggle(void);
+void Regimode_set(void);
 typedef struct
 {
     bool pairing;
@@ -31,7 +33,8 @@ typedef struct
     bool charger_full;
     bool low_bat;
     bool power_en;
-
+    bool regi_en;
+    uint8_t regi_tick;
     uint8_t ack_input_tick;
     uint8_t factory_blue_tick;
     uint8_t factory_red_tick;
@@ -51,6 +54,19 @@ typedef struct
 } led_context_t;
 
 static volatile led_context_t m_led;
+void led_regi_start(void)
+{
+    m_led.regi_en = true;
+    m_led.regi_tick = 50;
+    led_set_RGB(0,0,0);
+}
+void led_regi_stop(void)
+{
+    m_led.regi_en = false;
+    led_set_RGB(0,0,0);
+}
+
+
 void led_ble_ack_input(void)
 {
     m_led.ack_input_tick = 5;
@@ -136,6 +152,7 @@ static void led_turnoff_timer_handler(void *p_context)
 { 
     if(error_flag)
       return;
+
     if(m_led.power_en)
     {
         
@@ -145,8 +162,7 @@ static void led_turnoff_timer_handler(void *p_context)
           //NRF_LOG_INFO("green_on\r\n");
           led_set_RGB(0,1,0);
           if(m_led.power_green_tick == 0)
-           pairing_set(1);
-
+           pairing_set();
         }
         else if(m_led.power_red_tick)
         {
@@ -190,7 +206,17 @@ static void led_turnoff_timer_handler(void *p_context)
       }
       return;
     }
-
+    if(m_led.regi_en)
+    {
+        static uint8_t regi_count = 0;
+        regi_count++;
+        if(m_led.regi_tick < regi_count)
+        {
+            regi_count = 0;
+            regi_toggle();
+        }
+        return;
+    }
   //--------------------------------
     if(m_led.charger)
     {
@@ -310,9 +336,10 @@ static void button_press_timer_handler(void * p_context)
         #if 1
         else if(button_time == PARING_TIME)
         {
-            if(nrf_gpio_pin_out_read(POWER_HOLD_PIN)) 
-                pairing_set(2);
-        }
+            led_pairing_stop();
+
+            Regimode_set();
+        } 
         #endif
        APP_ERROR_CHECK(app_timer_start(m_button_timer,
         APP_TIMER_TICKS(1000),
@@ -450,6 +477,12 @@ void led_set_RGB(uint8_t R, uint8_t G, uint8_t B)
       nrf_gpio_pin_clear(LED_BLUE_PIN);
 }
 
+void regi_toggle(void)
+{
+    nrf_gpio_pin_toggle(LED_GREEN_PIN);
+    nrf_gpio_pin_toggle(LED_BLUE_PIN);
+}
+
 void paring_toggle(void)
 {
   static bool pairing_state = false;
@@ -542,7 +575,6 @@ void gpio_init(void)
     volatile uint32_t press_start_tick = 0;
     volatile uint32_t last_log_tick = 0;
     uint32_t current_tick = 0;
-    bool button_pressed = false;
     NRF_LOG_INFO("PKEY 10s Hold Check Start...");
     nrf_gpio_cfg_input(BAT_STAT_PIN, NRF_GPIO_PIN_NOPULL);
     nrf_gpio_cfg_input(PKEY_STAT_SW_PIN,NRF_GPIO_PIN_NOPULL);
@@ -554,10 +586,7 @@ void gpio_init(void)
   
         while (1)
         {
-
             current_tick = app_timer_cnt_get();
-            button_pressed = (nrf_gpio_pin_read(PKEY_STAT_SW_PIN) == 0);
-
             #if 1
             if (nrf_gpio_pin_read(PKEY_STAT_SW_PIN) == 0)
             {

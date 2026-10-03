@@ -69,7 +69,7 @@ uint16_t saadc_timer_handler(void * p_context)
       v_bat_mv = pin_voltage * 2; 
 
        bat_level = battery_percent_stable(battery_percent(v_bat_mv));
-       //NRF_LOG_INFO("Real Battery: %d%% (RAW:%d)\r\n", battery_percent_stable(battery_percent(v_bat_mv)), adc_value);
+       NRF_LOG_INFO("Real Battery: %d%% (RAW:%d)\r\n", battery_percent_stable(battery_percent(v_bat_mv)), adc_value);
        //NRF_LOG_INFO("adc %dmv(%d)\r\n", v_bat_mv,adc_value); 
     }
     else
@@ -77,7 +77,7 @@ uint16_t saadc_timer_handler(void * p_context)
         NRF_LOG_ERROR("ADC fail: 0x%08X", err);
     }
     saadc_deinit();
-    LowBat_State();
+    //LowBat_State();
     return adc_value;
 }
 #if 0

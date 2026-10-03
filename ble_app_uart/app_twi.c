@@ -14,21 +14,24 @@ static const nrfx_twi_t m_twi = NRFX_TWI_INSTANCE(TWI_INSTANCE_ID);
 #include "nrfx_gpiote.h"
 // TWI 상태를 추적하기 위한 플래그 (선택 사항)
 static volatile bool m_xfer_done = false;
-
 uint32_t I2C_Transmit(uint8_t* data, uint16_t len)
 {
     m_xfer_done = false;
-    ret_code_t err = 0;
-    err = nrfx_twi_tx(&m_twi, LSM6DSV_ADDR, data, len, false);
+    ret_code_t err = nrfx_twi_tx(&m_twi, LSM6DSV_ADDR, data, len, false);
     if (err != NRFX_SUCCESS)
     {
         return err;
     }
 
-    // 전송 완료(또는 NACK 에러)까지 대기
-    while (!m_xfer_done)
+    // 전력 관리 슬립 대신 단순 대기 (타임아웃 안전장치 포함 권장)
+    uint32_t timeout = 10000; // 적절한 타임아웃 틱 또는 카운터
+    while (!m_xfer_done && timeout--)
     {
-        nrf_pwr_mgmt_run(); // Low Power Wait
+        // 빈 루프 또는 __NOP()로 대기 (인터럽트에 의해 m_xfer_done이 true가 됨)
+    }
+
+    if (!m_xfer_done) {
+        return NRF_ERROR_TIMEOUT; // 타임아웃 에러 처리
     }
 
     return err;
@@ -108,9 +111,9 @@ void twi_deinit(void)
 
     // ② [필수 추가] TWI 드라이버 리소스 및 인터럽트 완벽 해제 (중복 init 에러 방지)
     nrfx_twi_uninit(&m_twi); 
-NRF_TWI0->ENABLE = 0;
-*(volatile uint32_t *)((uint32_t)NRF_TWI0 + 0xFFC) = 0;
-*(volatile uint32_t *)((uint32_t)NRF_TWI0 + 0xFFC); // Dummy read
+    NRF_TWI0->ENABLE = 0;
+    *(volatile uint32_t *)((uint32_t)NRF_TWI0 + 0xFFC) = 0;
+    *(volatile uint32_t *)((uint32_t)NRF_TWI0 + 0xFFC); // Dummy read
     // ③ [풀업 누설 차단] 핀을 일반 고저항 입력(Disconnected) 상태로 완벽히 격리
    // nrf_gpio_cfg_default(LSM_SDA); 
     
@@ -133,7 +136,7 @@ void twi_init(void)
         .scl                = LSM_SCL,
         .sda                = LSM_SDA,
         .frequency          = NRF_TWI_FREQ_400K,
-        .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
+        .interrupt_priority = APP_IRQ_PRIORITY_LOW,
         .hold_bus_uninit     = true // uninit 시 드라이버가 알아서 핀을 안 건드리게 설정
     };
 

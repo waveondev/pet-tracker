@@ -47,6 +47,8 @@ typedef enum
 #define LSM_SCL               26
 
 #define BAT_ADC               2
+void led_regi_start(void);
+void led_regi_stop(void);
 void led_ble_ack_input(void);
 
 void gpio_timer_stop(void);

@@ -133,4 +133,5 @@ Output/Debug/Obj/ble_app_uart_pca10040_s132/app_qc.o: \
  ../config/app_sensor_flash.h \
  ../../../../../../modules/nrfx/drivers/include/nrfx_gpiote.h \
  ../../../../../../modules/nrfx/hal/nrf_gpiote.h \
- ../../../../../../modules/nrfx/hal/nrf_gpio.h ../config/app_sensor.h
+ ../../../../../../modules/nrfx/hal/nrf_gpio.h ../config/app_sensor.h \
+ ../config/app_wdg.h

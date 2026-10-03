@@ -10,10 +10,11 @@
 void lsb6_ble_data(Motion_Packet_t* rx_packet);
 void setting_change(Motion_Packet_t *Motion_Packet);
 void rtc_sync_set_time(Motion_Packet_t* Motion_Packet);
+void timer_connection_stop_start(uint8_t state);
 void ble_data_input(uint8_t* in_data, uint16_t len, int8_t rssi)
 {
     Motion_Packet_t* Motion_Packet = (Motion_Packet_t*)in_data;
-
+    timer_connection_stop_start(true);
     if(len < 20)
       return;
     switch(Motion_Packet->event_code)
