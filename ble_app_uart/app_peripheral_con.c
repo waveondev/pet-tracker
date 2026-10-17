@@ -323,7 +323,7 @@ static uint32_t advertising_beacon_start(void)
 
 
 
-void App_advertising_start(uint8_t* Name, uint8_t data,ble_gap_addr_t* whitelist_addr)
+void App_advertising_start(uint8_t* Name, uint8_t data,uint32_t advertising_time)
 {
     #define BLE_UNIT_MS_NUM 8
     #define BLE_UNIT_MS_DEN 5
@@ -358,7 +358,7 @@ void App_advertising_start(uint8_t* Name, uint8_t data,ble_gap_addr_t* whitelist
         if(advertising_beacon_start() != NRF_SUCCESS)
           err_code++;
 
-        m_advertising.adv_modes_config.ble_adv_fast_interval = 100 * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
+        m_advertising.adv_modes_config.ble_adv_fast_interval = advertising_time * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED;
         
         // 연결 모드일 때는 기존 라이브러리 함수 그대로 사용

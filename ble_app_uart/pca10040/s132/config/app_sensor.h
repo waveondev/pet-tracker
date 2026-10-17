@@ -128,5 +128,5 @@ uint16_t Sensor_fifo_data_size(void);
 bool Sensor_init(bool debug);
 void sensor_enable(void);
 void Sensor_update(void);
-
+void DebugMode_close(void);
 #endif

@@ -27,10 +27,10 @@ static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
     switch (p_evt->id)
     {
         case NRF_FSTORAGE_EVT_WRITE_RESULT:
-             NRF_LOG_INFO("Flash write success.");
+           //  NRF_LOG_INFO("Flash write success.");
           break;
         case NRF_FSTORAGE_EVT_ERASE_RESULT:
-             NRF_LOG_INFO("Flash erase success.");
+            // NRF_LOG_INFO("Flash erase success.");
           break;
         default:
           break;
@@ -148,7 +148,7 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
     rc = nrf_fstorage_write(&my_fstorage, addr, data, len, NULL);
     if (rc == NRF_SUCCESS)
     {
-        NRF_LOG_INFO("Stored at 0x%08x", addr);
+        //NRF_LOG_INFO("Stored at 0x%08x", addr);
 
     }
     else

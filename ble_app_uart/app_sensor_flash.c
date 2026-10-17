@@ -24,38 +24,26 @@ static uint32_t m_current_addr = FLASH_START_ADDR;
 static uint32_t m_last_send_addr = FLASH_START_ADDR;
 static uint32_t m_target_send_addr = FLASH_START_ADDR;
 static uint32_t m_current_send_addr = FLASH_START_ADDR;
+static uint8_t m_save_index = 0;
 
 
 
-
-retained_data_t* Sensor_Get_Seq(void)
+uint8_t get_save_index(void)
 {
-  return &Retained_data;
+  return m_save_index;
 }
-
-
 /**
  * @brief 현재 주소를 8바이트 증가시키고, 필요시 날짜 점프 및 30일 롤백을 수행하여 반환
  */
 uint32_t get_next_flash_addr(uint32_t addr, uint8_t len)
 {
-    uint32_t next = addr + len; // 8바이트 전진
-    
-    // 1. 하루치 마감(1440개 * 8바이트 = 11520바이트) 구역에 도달했는지 확인
-    uint32_t offset_in_day = (next - FLASH_START_ADDR) % MOTION_DAY_SIZE;
-    if (offset_in_day >= (LOGS_PER_DAY * len))
-    {
-        // 16KB(0x4000) 경계의 다음 날 시작 주소로 점프
-        uint32_t day_idx = (next - FLASH_START_ADDR) / MOTION_DAY_SIZE;
-        next = FLASH_START_ADDR + ((day_idx + 1) * MOTION_DAY_SIZE);
-    }
-    
-    // 2. 30일 마지노선(0xB8000) 도달 시 첫 주소로 랩어라운드
+    uint32_t next = addr + len;
+
     if (next >= MOTION_END_ADDR)
     {
         next = FLASH_START_ADDR;
     }
-    
+
     return next;
 }
 
@@ -111,100 +99,104 @@ uint32_t calculate_total_send_count(void)
 void Sensor_flash_set(uint8_t data)
 {
     static uint8_t my_data[4];
-    static uint8_t index = 0;
-    
+  
+    my_data[m_save_index++] = data;
 
-    my_data[index] = data;
-
-    index++;
-
-    tracker_setting_t* setting = Tracker_Get_Setting();
-    if(index > 3)
+    if (m_save_index < 4)
     {
-        index = 0;
-        // 1. 머리(current)가 다음에 이동할 예상 주소를 똑똑한 헬퍼 함수로 계산! (날짜 점프 포함)
-        uint32_t next_addr = get_next_flash_addr(m_current_addr, 4);
-        // 머리가 꼬리를 덮으려 하면 가장 오래된 하루(0x3000)를 삭제
-        if ((next_addr == m_last_send_addr) &&
-            (m_current_addr != m_last_send_addr))
+        return;
+    }
+
+    m_save_index = 0;
+
+    uint32_t next_addr = get_next_flash_addr(m_current_addr, 4);
+
+    // 다음 기록 위치가 읽기 시작 위치를 따라잡으면
+    // last 포인터를 4KB 전진
+    if (next_addr == m_last_send_addr)
+    {
+        uint32_t new_last = m_last_send_addr + FLASH_PAGE_SIZE;
+
+        if (new_last >= MOTION_END_ADDR)
         {
-            uint32_t tail_day_idx = (m_last_send_addr - FLASH_START_ADDR) / MOTION_DAY_SIZE;
-            m_last_send_addr = FLASH_START_ADDR + ((tail_day_idx + 1) * MOTION_DAY_SIZE);
-            
-            if (m_last_send_addr >= MOTION_END_ADDR)
-            {
-                m_last_send_addr = FLASH_START_ADDR;
-            }
-            
-            NRF_LOG_WARNING("Ring buffer full! Dropped 1 whole day. New last_send_addr: 0x%08x", m_last_send_addr);
+            new_last = FLASH_START_ADDR;
         }
 
-        NRF_LOG_INFO("flash = %p my_data = %d %d %d %d  \n",m_current_addr, my_data[0],my_data[1],my_data[2],my_data[3]);
-        // 3. 플래시 쓰기
-        ret_code_t rc = flash_write(m_current_addr, (uint8_t*)my_data, sizeof(my_data));
-       
-        if (rc == NRF_SUCCESS)
-        {
-            // ★ [정답] 똑똑하게 계산해 둔 next_addr를 그대로 현재 주소에 덮어씌움!
-            m_current_addr = next_addr; 
-        }
-        
-        // 데이터 카운트만 올려주고 끝! (아래쪽에 있던 중복 점프 로직은 싹 삭제)
+        m_last_send_addr = new_last;
 
+        NRF_LOG_WARNING(
+            "Ring buffer full! new last = 0x%08x",
+            m_last_send_addr
+        );
+    }
+
+    ret_code_t rc = flash_write(
+        m_current_addr,
+        my_data,
+        sizeof(my_data)
+    );
+
+    if (rc == NRF_SUCCESS)
+    {
+        m_current_addr = next_addr;
     }
 }
 
 
 static uint16_t max_idx = 0;
+
 uint8_t sensor_get_data(Motion_Packet_t* data)
 {
     uint8_t pack_idx = 0;
-    
     uint8_t* motion_ptr = data->motion_data.MLC_data;
     uint8_t my_data;
 
-// 이미 목표 주소에 도달했다면 바로 종료
-    if (m_current_send_addr == m_target_send_addr) {
+    // 이미 목표 주소에 도달했거나 최대 데이터 수에 도달한 경우
+    if ((m_current_send_addr == m_target_send_addr) ||
+        (max_idx >= 108))
+    {
         return 0;
     }
-    while ((pack_idx < 18) && (m_current_send_addr != m_target_send_addr))
+
+    while ((pack_idx < 18) &&
+           (m_current_send_addr != m_target_send_addr) &&
+           (max_idx < 108))
     {
-        flash_read(m_current_send_addr, (uint8_t*)&my_data, sizeof(uint8_t));
+        flash_read(m_current_send_addr, &my_data, sizeof(my_data));
 
         motion_ptr[pack_idx] = my_data;
 
-        pack_idx++;  
+        pack_idx++;
         max_idx++;
 
-
         uint32_t next_addr = get_next_flash_addr(m_current_send_addr, 1);
-        
-        // [안전장치] 다음 주소가 목표 주소를 넘어서거나 오버플로우 발생 시 중단
-        if (next_addr == m_current_send_addr) { 
+
+        // 주소 이동 실패
+        if (next_addr == m_current_send_addr)
+        {
             NRF_LOG_ERROR("Flash Address stuck!\r\n");
-            m_current_send_addr = m_target_send_addr; // 강제 종료 조건 달성
+            m_current_send_addr = m_target_send_addr;
             break;
         }
 
         m_current_send_addr = next_addr;
-        if(max_idx >= 100)
-          return 0;
     }
 
-    if ((pack_idx > 0) && (m_current_send_addr != m_target_send_addr)) 
+    // 디버깅 로그
+    NRF_LOG_INFO("pack_idx=%u, max_idx=%u", pack_idx, max_idx);
+    NRF_LOG_INFO("current=0x%08X, target=0x%08X",
+                 m_current_send_addr, m_target_send_addr);
+
+    // 더 읽을 데이터가 남아 있을 때만 1 반환
+    if ((m_current_send_addr != m_target_send_addr) &&
+        (max_idx < 108))
     {
-        return 1; // 더 보낼 데이터가 남아있음 (타이머 계속 진행)
-    } 
-    else if (pack_idx > 0)
-    {
-        // 이번 패킷이 마지막 데이터인 경우!
-        // (데이터 전송은 진행하되, 다음 타이머는 켜지 않도록 0 반환)
-        return 0; 
+      NRF_LOG_INFO("current=0x%08X, target=0x%08X",
+               m_current_send_addr, m_target_send_addr);
+        return 1;
     }
-    else 
-    {
-        return 0; // 보낼 데이터가 전혀 없음
-    }
+
+    return 0;
 }
 
 static uint32_t normalize_day_addr(uint32_t addr)

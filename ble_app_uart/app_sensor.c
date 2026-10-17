@@ -52,7 +52,7 @@ volatile bool sensor_exfire = false;
 
 volatile bool debugmode_flag = false;
 
-
+static bool disconnect_flag = false;
 // ±2g 모드에서의 감도 (0.061 mg/LSB -> g 단위로 변환하기 위해 0.000061f 곱함)
 #define LSM6DSV_XL_SENSITIVITY_2G   0.000061f
 #define LSM6DSV_XL_SENSITIVITY_4G   0.000122f
@@ -379,7 +379,10 @@ static Sensor_Setting_t debug_Sensor_value[] =
 
 
 #endif
-
+void DebugMode_close(void)
+{
+  disconnect_flag = true;
+}
 // FIFO 래치 해제 및 초기화
 void lsm6dsv_fifo_flush(uint8_t* fifo_buf, uint32_t data_len)
 {
@@ -397,6 +400,7 @@ void lsm6dsv_fifo_flush(uint8_t* fifo_buf, uint32_t data_len)
 
 }
 extern void Motion_interrupt(void);
+
 void Sensor_update(void)
 {
   uint32_t total_activity_score = 0;
@@ -446,8 +450,7 @@ void Sensor_update(void)
     I2C_Transmitreceive(&reg, 1, &Sensor_RawData.mlc[0], 4);
       if(debugmode_flag == false)
         Sensor_flash_set(Sensor_RawData.mlc[0]);
-      NRF_LOG_INFO("MLC1=%02X MLC2=%02X MLC3=%02X MLC4=%02X",\
-                   Sensor_RawData.mlc[0], Sensor_RawData.mlc[1], Sensor_RawData.mlc[2], Sensor_RawData.mlc[3]);
+      //NRF_LOG_INFO("MLC1=%02X MLC2=%02X MLC3=%02X MLC4=%02X", Sensor_RawData.mlc[0], Sensor_RawData.mlc[1], Sensor_RawData.mlc[2], Sensor_RawData.mlc[3]);
     tx[1] = 0x00;
     I2C_Transmit(tx, 2);
     
@@ -531,7 +534,7 @@ bool Sensor_init(bool debug)
 
     uint8_t reg;
     uint8_t val;
-
+    uint8_t buffer[2];
     twi_init();
     if(Sensor_Get_Id() == false)
     {
@@ -542,7 +545,16 @@ bool Sensor_init(bool debug)
    Sensor_sleep();
  
     sensor_debug_init();
-
+    if(debug == true)
+    {
+          data_size = 2;
+          buffer[0] = FIFO_CTRL3;
+          buffer[1] = 0x55;
+          I2C_Transmit(buffer, 2); 
+          buffer[0] = FIFO_CTRL1;
+          buffer[1] = data_size;
+          I2C_Transmit(buffer, 2); 
+    }
 
     (void)fifo_get_size();
 
@@ -710,6 +722,7 @@ void lsb6_ble_data(Motion_Packet_t* rx_packet)
 
 void sensor_flag_input(void)
 {
+  uint8_t buffer[2];
   if(rx_flag == true)
   {
     rx_flag = false;
@@ -718,7 +731,7 @@ void sensor_flag_input(void)
     uint8_t start_addr = next_data.lsm6_data_req_res.start_address;
     uint8_t tx_buf[17]; 
     bool send_flag = false;
-    uint8_t buffer[2];
+
     // 최대 16바이트 제한 초과 시 실행 안 함 (메모리 오염 방지)
     if (len == 0 || len > 16) return;
     twi_init();
@@ -766,6 +779,21 @@ void sensor_flag_input(void)
     {
       next_data.event_code = LSM6_DATA_RESPONSE;
       BLE_Send_byte((uint8_t*)&next_data,sizeof(Motion_Packet_t));
+    }
+  }
+  if(disconnect_flag)
+  {
+    disconnect_flag = false;
+    if(debugmode_flag)
+    {
+        data_size = DATA_SIZE;
+        buffer[0] = FIFO_CTRL3;
+        buffer[1] = 0x50;
+        I2C_Transmit(buffer, 2); 
+        buffer[0] = FIFO_CTRL1;
+        buffer[1] = data_size;
+        I2C_Transmit(buffer, 2);
+        debugmode_flag = false;
     }
   }
 }

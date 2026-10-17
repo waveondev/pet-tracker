@@ -69,6 +69,8 @@ NRF_BLE_GATT_DEF(m_gatt);                                                       
 
 APP_TIMER_DEF(m_qc_timer);
 
+
+bool qcmode_enable = false;
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
 
@@ -324,7 +326,7 @@ static void idle_state_handle(void)
 
 
 
-
+static uint8_t button_count = 0;
 
 /****************** QC GPIO*************************/
 static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
@@ -335,11 +337,11 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
         case PKEY_STAT_SW_PIN:
             if (nrf_gpio_pin_read(PKEY_STAT_SW_PIN))
             {
-                nrf_gpio_pin_clear(LED_BLUE_PIN);
+                button_count = 3;
             } 
             else
             {
-                nrf_gpio_pin_set(LED_BLUE_PIN);
+                button_count = 3;
             } 
         break;
         case VBUS_IN_PIN:
@@ -351,19 +353,11 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
                 //NRF_LOG_INFO("LSM_INT_PIN input1\r\n");
                 sensor_enable();
             }
-        break;
-        
+        break;  
     }
-
-
 }
 void app_qc_gpio_init(void)
 {
-
-    nrfx_gpiote_in_config_t pek_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
-    APP_ERROR_CHECK(nrfx_gpiote_in_init(PKEY_STAT_SW_PIN, &pek_config, gpio_handler));
-    nrfx_gpiote_in_event_enable(PKEY_STAT_SW_PIN, true);
-
 
     nrfx_gpiote_in_config_t vbus_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
     vbus_config.pull = NRF_GPIO_PIN_NOPULL;   // 필요시 PULLDOWN으로 변경
@@ -392,45 +386,63 @@ void app_qc_gpio_init(void)
     {
 
     }
-    nrf_gpio_pin_clear(LED_GREEN_PIN);
-    nrf_gpio_pin_clear(LED_BLUE_PIN);
-    nrf_gpio_pin_clear(LED_RED_PIN);
-
+    nrfx_gpiote_in_config_t pek_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+    APP_ERROR_CHECK(nrfx_gpiote_in_init(PKEY_STAT_SW_PIN, &pek_config, gpio_handler));
+    nrfx_gpiote_in_event_enable(PKEY_STAT_SW_PIN, true);
 
 }
 
 /****************** QC GPIO*************************/
 extern void BLE_Init(void);
 uint32_t error_flag = 0;
-
+extern int8_t get_rssi(void);
 void error_set_flag(uint32_t flag)
 {
   error_flag = flag;
-  nrf_gpio_pin_clear(LED_GREEN_PIN);
-  nrf_gpio_pin_clear(LED_BLUE_PIN);
-  nrf_gpio_pin_clear(LED_RED_PIN);
+  //nrf_gpio_pin_clear(LED_GREEN_PIN);
+  //nrf_gpio_pin_clear(LED_BLUE_PIN);
+ // nrf_gpio_pin_clear(LED_RED_PIN);
+  fault_code* fault_flag = get_fault_flag();
+  bool health_set = false;
   switch(error_flag)
   {
     case FLASH_ERROR:
+        health_set = true;
+        fault_flag->bit.storage = 1;
         led_timer_start(false,false,true,100);
     break;
     case ADC_ERROR:
+        health_set = true;
+        fault_flag->bit.reserved = 1;
         led_timer_start(true,false,false,100);
     break;
     case MOTION_ERROR:
+        health_set = true;
+        fault_flag->bit.IMU_Err = 1;
         led_timer_start(false,true,false,100);
     break;
     case BLE_ERROR:
+        health_set = true;
+        fault_flag->bit.BLE_Err = 1;
         led_timer_start(true,true,true,100);
     break;
     default:
     break;
   }
+  if(health_set)
+  {
+    health_data_send(NULL,get_rssi());
+  }
+
 }
-uint8_t Motion_gpio_timeout = 5;
+uint8_t Motion_gpio_timeout = 3;
 void Motion_interrupt(void)
 {
-    Motion_gpio_timeout = 5;
+    if(qcmode_enable == true)
+    {
+        nrf_gpio_pin_clear(LED_GREEN_PIN);
+        Motion_gpio_timeout = 3;
+    }
 }
 
 static void sensor_timer_handler(void * p_context)
@@ -440,13 +452,19 @@ static void sensor_timer_handler(void * p_context)
     
     if(battery < 4300 && battery > 3400)
     {
-    
+        nrf_gpio_pin_clear(LED_RED_PIN);
     }
     else
       error_set_flag(ADC_ERROR);
     Motion_gpio_timeout--;
     if(Motion_gpio_timeout == 0)
         error_set_flag(MOTION_ERROR);
+    if(button_count)
+    {
+      button_count--;
+      if(button_count == 0)
+          nrf_gpio_pin_clear(LED_BLUE_PIN);
+    }
 }
 
 static void QC_RED_timer_handler(void * p_context)
@@ -494,8 +512,9 @@ void app_qc_timer_create(void)
 void app_qc_mode(void)
 {
   ret_code_t err_code;
+  qcmode_enable = true;
   app_qc_gpio_init();
-
+  
   app_qc_timer_create();
   //saadc_init();
   wdt_init();
@@ -503,13 +522,13 @@ void app_qc_mode(void)
     error_set_flag(FLASH_ERROR);
 
 
-  if(Sensor_init(false) == false)
+  if(Sensor_init(true) == false)
     error_set_flag(MOTION_ERROR);
     
   saadc_timer_handler(NULL);
   Sensor_update();
   BLE_Init();
-  App_advertising_start("T100-QC", 0,0);
+  App_advertising_start("T100_QC", 0,100);
 
   err_code = app_timer_create(&m_sensor_timer,\
                           APP_TIMER_MODE_REPEATED,\

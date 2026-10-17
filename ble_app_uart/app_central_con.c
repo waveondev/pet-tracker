@@ -260,8 +260,15 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
                             &offset,
                             BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA
                         );
-                        if(p_adv->data.p_data[offset + 2] == 0x01)
-                            is_matched = true;
+
+                        // len이 0이 아니고, offset + 2 인덱스(최소 3바이트 이상)에 안전하게 접근 가능한지 검사
+                        if (len >= 3 && (offset + 2) < p_adv->data.len)
+                        {
+                            if (p_adv->data.p_data[offset + 2] == 0x01)
+                            {
+                                is_matched = true;
+                            }
+                        }
 
                         break;
                     }

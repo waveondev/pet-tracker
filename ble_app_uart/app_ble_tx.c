@@ -24,12 +24,19 @@ void sensing_send_init(void);
 void sensing_ack_input(void);
 #define TRACKER_MAJOR 1
 #define TRACKER_MINOR 1
-#define TRACKER_PATCH 2
+#define TRACKER_PATCH 5
 static volatile uint32_t g_system_uptime_sec = 0;
 static void uptime_timer_handler(void * p_context)
 {
     g_system_uptime_sec++;
 }
+static fault_code fault_flag;
+
+fault_code* get_fault_flag(void)
+{
+  return &fault_flag;
+}
+
 
 void health_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
 {
@@ -47,10 +54,10 @@ void health_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
     Motion_Packet.health_data_res.minor = TRACKER_MINOR;
     Motion_Packet.health_data_res.patch = TRACKER_PATCH;
     Motion_Packet.health_data_res.target_rssi = rssi;
-    fault_code fault_flag;
-    if(Bat_voltage < 35)
+
+    if(Bat_voltage < 30)
       Motion_Packet.health_data_res.fault_flag.bit.Bat_Status = 2;
-    else if(Bat_level < 40)
+    else if(Bat_level < 70)
       Motion_Packet.health_data_res.fault_flag.bit.Bat_Status = 1;
     else
       Motion_Packet.health_data_res.fault_flag.bit.Bat_Status = 0;
@@ -87,6 +94,8 @@ static void pack_send_timer_handler(void * p_context)
         m_is_pack_timer_running = false;
         return;
     }
+    NRF_LOG_INFO("seq=%u, has_more_data=%u",
+             send_seq, has_more_data);
     if (has_more_data == 0 || send_seq == 0xff)
     {
           m_is_pack_timer_running = false;
@@ -102,28 +111,29 @@ static void pack_send_timer_handler(void * p_context)
 
 void sensor_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
 {
-    retained_data_t* retained_data = Sensor_Get_Seq();
     tracker_setting_t* setting = Tracker_Get_Setting();
     Motion_Packet_t Motion_Packet;
-    memset(&Motion_Packet,0,sizeof(Motion_Packet));
-
-    sensing_send_init();
-    Motion_Packet.event_code = MOTION_START_RESPONSE;
-
-// 1. 계산된 포인트 수 가져오기
-    Motion_Packet.motion_req.total_points = calculate_total_send_count();
-
-    if(Motion_Packet.motion_req.total_points > 100)
-      Motion_Packet.motion_req.send_points = 100;
-    else 
-      Motion_Packet.motion_req.send_points = Motion_Packet.motion_req.total_points;
 
     if(m_is_pack_timer_running == false)
     {
+        memset(&Motion_Packet,0,sizeof(Motion_Packet));
+        sensing_send_init();
+        send_seq = 0;
+        Motion_Packet.event_code = MOTION_START_RESPONSE;
+
+    // 1. 계산된 포인트 수 가져오기
+        Motion_Packet.motion_start_res.total_points = calculate_total_send_count();
+
+        if(Motion_Packet.motion_start_res.total_points > 108)
+          Motion_Packet.motion_start_res.send_points = 108;
+        else 
+          Motion_Packet.motion_start_res.send_points = Motion_Packet.motion_start_res.total_points;
+        Motion_Packet.motion_start_res.non_save_points = get_save_index();
+
         uint32_t err_code = BLE_Send_byte((uint8_t*)&Motion_Packet,sizeof(Motion_Packet));
-        if(err_code == NRF_SUCCESS && Motion_Packet.motion_req.send_points != 0)
+        if(err_code == NRF_SUCCESS && Motion_Packet.motion_start_res.send_points != 0)
         {
-            send_seq = 0;
+
             m_is_pack_timer_running = true;
             app_timer_start(m_pack_send_timer,\
                         APP_TIMER_TICKS(500),\
@@ -134,7 +144,6 @@ void sensor_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
 
 void sensor_ack_input(Motion_Packet_t* rx_packet)
 {
-    retained_data_t* retained_data = Sensor_Get_Seq();
     if(rx_packet->motion_ack.ack_seq_no == send_seq)
     {
       sensing_ack_input();
@@ -159,7 +168,7 @@ void sensor_ota_send(Motion_Packet_t* rx_packet)
     Motion_Packet.ota_res.cmd_type = 1;
      uint32_t bat = battery_percent_get();
     #if DFUMODE
-    if(bat >= 35 && rx_packet->ota_req.cmd_type == 1)
+    if(bat >= 20 && rx_packet->ota_req.cmd_type == 1)
     {
       Motion_Packet.ota_res.status = 0;
     }
@@ -169,16 +178,16 @@ void sensor_ota_send(Motion_Packet_t* rx_packet)
       Motion_Packet.ota_res.status = 1;
     }
 
-      uint32_t err_code = BLE_Send_byte((uint8_t*)&Motion_Packet,sizeof(Motion_Packet));
-      if(err_code == NRF_SUCCESS)
-      {
-          if(Motion_Packet.ota_res.status == 0)
-          {
-              app_timer_start(m_ota_timer,\
-                          APP_TIMER_TICKS(200),\
-                          NULL);
-          }
-      }
+    uint32_t err_code = BLE_Send_byte((uint8_t*)&Motion_Packet,sizeof(Motion_Packet));
+    if(err_code == NRF_SUCCESS)
+    {
+        if(Motion_Packet.ota_res.status == 0)
+        {
+            app_timer_start(m_ota_timer,\
+                        APP_TIMER_TICKS(200),\
+                        NULL);
+        }
+    }
 
 }
 

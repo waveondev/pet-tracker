@@ -5,7 +5,7 @@
 
 #include "stdint.h"
 #include "app_sensor_flash.h"
-
+fault_code* get_fault_flag(void);
 void sensor_tx_timer_init(void);
 void time_data_send(Motion_Packet_t* rx_packet, int8_t rssi);
 void health_data_send(Motion_Packet_t* rx_packet, int8_t rssi);

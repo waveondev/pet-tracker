@@ -316,8 +316,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         break;
         case BLE_GAP_EVT_CONNECTED:
             not_conn_time = 0;
+            led_regi_stop();
             timer_not_conn_stop_start(false);
-            timer_regi_stop_start(0);
+            timer_regi_stop_start(false);
             timer_connection_stop_start(true);
             comunication_connect_event();
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;   
@@ -332,16 +333,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
                 case PARING_PERIPHERAL:            
                     system_config.app_peri_ble_event_handler((void*)p_ble_evt,m_conn_handle);
                     connect_target = PERIPHERAL_CONNECT;
-  
-                    // 2. FDS가 실제로 플래시에 쓰기 전까지 사라지지 않도록 static 공간에 복사
-                    ble_gap_addr_t const * peer_info = &p_ble_evt->evt.gap_evt.params.connected.peer_addr;
-  
-                    // 2. FDS가 실제 플래시에 쓰기 전까지 소멸하지 않도록 static 공간에 통째로 복사
-
                 break;
             }
-            //led_pairing_stop();
-            //timer_15min_stop_start(1000, 1);
             timer_15min_stop_start(TIMER_15_MIN_INTERVAL, 1);
             Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
             m_role_state = ROLE_PAIRING_END;
@@ -359,6 +352,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             app_timers_start();
             pairing_set();
             timer_15min_stop_start(0, 0);
+            DebugMode_close();
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
             break;
@@ -546,14 +540,22 @@ static void paring_timer_handler(void * p_context)
     tracker_setting_t* setting = Tracker_Get_Setting();
     m_paring_state = Next_state;
     uint32_t peripheral_time = 0;
-    if(not_conn_time > 1800)
+    uint32_t advertising_time = 0;
+    if(not_conn_time > 600)
+    {
       peripheral_time = 300000;
-    else if(not_conn_time > 600)
-      peripheral_time = 60000;
+      advertising_time = 1000;
+    }
     else if(not_conn_time > 180)
-      peripheral_time = 20000;    
+    {
+      peripheral_time = 60000;   
+      advertising_time = 500;
+    } 
     else
-      peripheral_time = 10000;
+    {
+      peripheral_time = 30000;
+      advertising_time = 500;
+    }
     switch (m_paring_state)
     {
       case PARING_CENTRAL_SCAN:
@@ -561,12 +563,12 @@ static void paring_timer_handler(void * p_context)
             led_pairing_start(CENTRAL_CONNECT);
                         App_advertising_start(NULL,1,0);   
             App_scan_start();
-            Paring_Timer_Set(PARING_CENTRAL_SCAN_END,1,10000);
+            Paring_Timer_Set(PARING_CENTRAL_SCAN_END,1,5000);
       }break;
       case PARING_CENTRAL_SCAN_END:
       {
             BLE_ALL_Disconnect();
-            Paring_Timer_Set(PARING_CENTRAL_CONNECT,1,100);
+            Paring_Timer_Set(PARING_CENTRAL_CONNECT,1,200);
       }break;
       case PARING_CENTRAL_CONNECT:
       {
@@ -580,7 +582,7 @@ static void paring_timer_handler(void * p_context)
       {
             BLE_ALL_Disconnect();
             led_pairing_start(PERIPHERAL_CONNECT);
-            App_advertising_start(NULL, 0,0);
+            App_advertising_start(NULL, 0,advertising_time);
             Paring_Timer_Set(PARING_SLEEP, 1,peripheral_time);
       }break;
       case PARING_SLEEP:
@@ -636,8 +638,8 @@ static void timer_15min_timeout_handler(void * p_context)
 { 
     int8_t rssi_dbm;
     NRF_LOG_INFO("15 Minutes Timer Expired! Doing task...");
-    if(m_conn_handle != BLE_CONN_HANDLE_INVALID)
-       rssi_dbm = get_rssi();
+
+     rssi_dbm = get_rssi();
     health_data_send(NULL, rssi_dbm);
     timer_15min_stop_start(TIMER_15_MIN_INTERVAL,1);
 }
@@ -822,9 +824,10 @@ void Regimode_set(void)
     
     Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
     m_role_state = ROLE_BOOT_UP;
+    m_paring_state = PARING_PERIPHERAL;
     timer_regi_stop_start(true);
     led_regi_start();
-    App_advertising_start("T100-R-Tracker",0,0);
+    App_advertising_start("T100_R_Tracker",0,100);
 }
   
 void pairing_set(void)
@@ -908,6 +911,8 @@ int8_t get_rssi(void)
 {
     int8_t rssi_dbm = 0;
     uint8_t ch_index = 0;
+    if(m_conn_handle != BLE_CONN_HANDLE_INVALID)
+      return 0;
     uint32_t err = sd_ble_gap_rssi_get(m_conn_handle, &rssi_dbm, &ch_index);
 
     if (err == NRF_SUCCESS) {
@@ -952,12 +957,37 @@ void BLE_Init(void)
 
 }
 void clock_debug(void);
+void reset_reason_get(void)
+{
+    uint32_t reset_reason;
 
+    uint32_t err_code = sd_power_reset_reason_get(&reset_reason);
+    fault_code* fault_flag = get_fault_flag();
+    if (err_code == NRF_SUCCESS) {
+   
+
+        if (reset_reason & POWER_RESETREAS_DOG_Msk) {
+            // 워치독(Watchdog) 타임아웃에 의한 리셋
+           fault_flag->bit.reset_reason = 1;
+        }
+        if (reset_reason & POWER_RESETREAS_SREQ_Msk) {
+            fault_flag->bit.reset_reason = 2;
+            // 소프트웨어 리셋
+        }
+        if (reset_reason & POWER_RESETREAS_LOCKUP_Msk) {
+            fault_flag->bit.reset_reason = 3;
+            // CPU Lockup에 의한 리셋
+        }
+
+        // 리셋 원인 클리어 (모든 비트 클리어 시 ~0 사용)
+        err_code = sd_power_reset_reason_clr(~0);
+    }
+}
 int main(void)
 {
     bool erase_bonds;
         uint32_t                  err_code;
-#if 1
+#if !DEBUG
     APP_ERROR_CHECK(ble_dfu_buttonless_async_svci_init());
 
 
@@ -972,7 +1002,7 @@ int main(void)
 #if NRF_LOG_ENABLED
     log_init();
 #endif
-  
+    reset_reason_get();
     timers_init();
     ble_stack_init();
     //rtc_sync_init();
@@ -1005,7 +1035,7 @@ int main(void)
     #endif
     for (;;)
     {
-        tracker_factory();
+
         Sensor_update();
         idle_state_handle();
     }
