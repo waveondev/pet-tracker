@@ -10,6 +10,7 @@
 #include "nrf.h"
 #include "app_flash.h"
 
+#include "app_ble_tx.h"
 
 #define MOTION_DAY_SIZE      0x9000   // 
 #define TOTAL_DAYS           6       // 30일 순환
@@ -153,14 +154,14 @@ uint8_t sensor_get_data(Motion_Packet_t* data)
 
     // 이미 목표 주소에 도달했거나 최대 데이터 수에 도달한 경우
     if ((m_current_send_addr == m_target_send_addr) ||
-        (max_idx >= 108))
+        (max_idx >= MAX_TRANS_DATA))
     {
         return 0;
     }
 
-    while ((pack_idx < 18) &&
+    while ((pack_idx < (MAX_TRANS_DATA/18)) &&
            (m_current_send_addr != m_target_send_addr) &&
-           (max_idx < 108))
+           (max_idx < MAX_TRANS_DATA))
     {
         flash_read(m_current_send_addr, &my_data, sizeof(my_data));
 
@@ -189,7 +190,7 @@ uint8_t sensor_get_data(Motion_Packet_t* data)
 
     // 더 읽을 데이터가 남아 있을 때만 1 반환
     if ((m_current_send_addr != m_target_send_addr) &&
-        (max_idx < 108))
+        (max_idx < MAX_TRANS_DATA))
     {
       NRF_LOG_INFO("current=0x%08X, target=0x%08X",
                m_current_send_addr, m_target_send_addr);

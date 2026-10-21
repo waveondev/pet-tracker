@@ -67,4 +67,5 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_sensor_flash.o: \
  ../../../../../../components/libraries/fstorage/nrf_fstorage.h \
  ../../../../../../components/softdevice/s140/headers/nrf_sdm.h \
  ../../../../../../components/softdevice/s140/headers/nrf_error_sdm.h \
- ../../../../../../components/softdevice/s140/headers/nrf_soc.h
+ ../../../../../../components/softdevice/s140/headers/nrf_soc.h \
+ ../config/app_ble_tx.h ../config/app_sensor_flash.h

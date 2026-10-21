@@ -60,7 +60,7 @@ typedef struct {
       struct
       {
         uint32_t total_points;
-        uint8_t send_points;
+        uint16_t send_points;
         uint8_t non_save_points;
         uint8_t reserved;
         uint16_t padding[6];

@@ -120,7 +120,7 @@ NRF_BLE_GATT_DEF(m_gatt);                                                       
 static system_config_t system_config; 
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
-static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint32_t next_time);
+
 void pairing_set(void);
 static uint8_t sleep_count = 0;
 APP_TIMER_DEF(m_role_timer);
@@ -151,21 +151,12 @@ static uint32_t not_conn_time = 0;
 typedef enum
 {
     ROLE_BOOT_UP,
-    ROLE_PAIRING_CENTRAL,
     ROLE_PAIRING_PERIPHERAL,
     ROLE_PAIRING_ING,
     ROLE_PAIRING_END,
     ROLE_PAIRING_CONNECT,
     ROLE_SLEEP,
 } role_state_t;
-typedef enum
-{
-    PARING_CENTRAL_SCAN,
-    PARING_CENTRAL_SCAN_END,
-    PARING_CENTRAL_CONNECT,
-    PARING_PERIPHERAL,
-    PARING_SLEEP,
-} Paring_state_t;
 
 float enmo_get(void);
 
@@ -175,7 +166,7 @@ static uint32_t Sleep_Enable = 0;
 #include "nrf_fstorage.h"
 
 static role_state_t m_role_state = ROLE_BOOT_UP;
-static Paring_state_t m_paring_state = PARING_CENTRAL_SCAN;
+
 static uint8_t connect_target = 0xFF;
 void BLE_ALL_Disconnect(void);
 
@@ -310,7 +301,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
                 BLE_GAP_TIMEOUT_SRC_CONN)
             {
                 NRF_LOG_ERROR(">>> CONNECTION TIMEOUT <<<");
-        	Paring_Timer_Set(PARING_PERIPHERAL, 1,100);
             }
         }
         break;
@@ -323,20 +313,11 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             comunication_connect_event();
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;   
            
-            switch (m_paring_state)
-            {
-                case PARING_CENTRAL_CONNECT:
-                    system_config.app_cent_ble_event_handler((void*)p_ble_evt,m_conn_handle);
-                    connect_target = CENTRAL_CONNECT;
-                break;
-            
-                case PARING_PERIPHERAL:            
-                    system_config.app_peri_ble_event_handler((void*)p_ble_evt,m_conn_handle);
-                    connect_target = PERIPHERAL_CONNECT;
-                break;
-            }
+    
+            system_config.app_peri_ble_event_handler((void*)p_ble_evt,m_conn_handle);
+            connect_target = PERIPHERAL_CONNECT;
+
             timer_15min_stop_start(TIMER_15_MIN_INTERVAL, 1);
-            Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
             m_role_state = ROLE_PAIRING_END;
             break;
 
@@ -535,68 +516,6 @@ uint8_t is_ParingMode(void)
 }
 
 
-static void paring_timer_handler(void * p_context)
-{
-    tracker_setting_t* setting = Tracker_Get_Setting();
-    m_paring_state = Next_state;
-    uint32_t peripheral_time = 0;
-    uint32_t advertising_time = 0;
-    if(not_conn_time > 600)
-    {
-      peripheral_time = 300000;
-      advertising_time = 1000;
-    }
-    else if(not_conn_time > 180)
-    {
-      peripheral_time = 60000;   
-      advertising_time = 500;
-    } 
-    else
-    {
-      peripheral_time = 30000;
-      advertising_time = 500;
-    }
-    switch (m_paring_state)
-    {
-      case PARING_CENTRAL_SCAN:
-      {
-            led_pairing_start(CENTRAL_CONNECT);
-                        App_advertising_start(NULL,1,0);   
-            App_scan_start();
-            Paring_Timer_Set(PARING_CENTRAL_SCAN_END,1,5000);
-      }break;
-      case PARING_CENTRAL_SCAN_END:
-      {
-            BLE_ALL_Disconnect();
-            Paring_Timer_Set(PARING_CENTRAL_CONNECT,1,200);
-      }break;
-      case PARING_CENTRAL_CONNECT:
-      {
-            if(cent_connect_peer() != NRF_SUCCESS)
-            {
-               Paring_Timer_Set(PARING_PERIPHERAL, 1,100);
-            }
-
-      }break;
-      case PARING_PERIPHERAL:
-      {
-            BLE_ALL_Disconnect();
-            led_pairing_start(PERIPHERAL_CONNECT);
-            App_advertising_start(NULL, 0,advertising_time);
-            Paring_Timer_Set(PARING_SLEEP, 1,peripheral_time);
-      }break;
-      case PARING_SLEEP:
-      {
-            App_advertising_stop();
-            led_pairing_stop();
-            connect_fail_event();
-            {
-                Paring_Timer_Set(PARING_CENTRAL_SCAN, 1,100);
-            }
-      }break;
-        
-    }
-}
 static void role_timer_handler(void * p_context)
 {
     ret_code_t err_code;
@@ -606,13 +525,10 @@ static void role_timer_handler(void * p_context)
     {
         case ROLE_BOOT_UP:
         break;              
-        case ROLE_PAIRING_CENTRAL:   
-
-            Paring_Timer_Set(PARING_CENTRAL_SCAN,1,100);
-            m_role_state = ROLE_PAIRING_ING;
-        break;
         case ROLE_PAIRING_PERIPHERAL:      
-            Paring_Timer_Set(PARING_PERIPHERAL,1,100);
+            BLE_ALL_Disconnect();
+            led_pairing_start(PERIPHERAL_CONNECT);
+            App_advertising_start(NULL, 0,500);
             m_role_state = ROLE_PAIRING_ING;
         break;
         case ROLE_PAIRING_END:
@@ -762,10 +678,7 @@ static void timers_init(void)
                             role_timer_handler);
 
     APP_ERROR_CHECK(err_code);
-    err_code = app_timer_create(&m_paring_timer,
-                                APP_TIMER_MODE_SINGLE_SHOT,
-                                paring_timer_handler);
-    APP_ERROR_CHECK(err_code);
+
     // 1. 15분 주기 타이머 생성 (반복 모드: APP_TIMER_MODE_REPEATED)
     err_code = app_timer_create(&m_15min_timer_id,
                                 APP_TIMER_MODE_REPEATED,
@@ -792,25 +705,7 @@ static void timers_init(void)
     
     sensor_tx_timer_init();
 }
-static void Paring_Timer_Set(uint8_t next_state, uint8_t enable, uint32_t next_time)
-{
-  uint32_t timer_tick = APP_TIMER_TICKS(next_time);
 
-  Next_state = next_state;
-  if(enable)
-  {
-      app_timer_stop(m_paring_timer);
-      app_timer_start(m_paring_timer,\
-                    timer_tick,\
-                    NULL);
-  }
-  else
-  {
-      led_pairing_stop();
-      sleep_count = 0;
-      app_timer_stop(m_paring_timer);
-  }
-}
 void BLE_ALL_Disconnect(void)
 {
     App_advertising_stop();
@@ -821,10 +716,7 @@ void BLE_ALL_Disconnect(void)
 void Regimode_set(void)
 {
     BLE_ALL_Disconnect();
-    
-    Paring_Timer_Set(PARING_CENTRAL_SCAN,0,0);
     m_role_state = ROLE_BOOT_UP;
-    m_paring_state = PARING_PERIPHERAL;
     timer_regi_stop_start(true);
     led_regi_start();
     App_advertising_start("T100_R_Tracker",0,100);
@@ -833,7 +725,7 @@ void Regimode_set(void)
 void pairing_set(void)
 {
     BLE_ALL_Disconnect();
-    m_role_state = ROLE_PAIRING_CENTRAL;
+    m_role_state = ROLE_PAIRING_PERIPHERAL;
     timer_not_conn_stop_start(true);
 }
 
@@ -849,6 +741,7 @@ static void app_timers_start(void)
                                NULL);
     APP_ERROR_CHECK(err_code);
 }
+
 static void app_timers_stop(void)
 {
     uint32_t err_code;

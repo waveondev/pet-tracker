@@ -70,4 +70,8 @@ Output/Release/Obj/secure_bootloader_ble_s132_pca10040/nrf_bootloader_wdt.o: \
  ../../../../../components/libraries/log/nrf_log.h \
  ../../../../../components/libraries/log/src/nrf_log_internal.h \
  ../../../../../components/libraries/log/nrf_log_instance.h \
- ../../../../../components/libraries/log/nrf_log_types.h
+ ../../../../../components/libraries/log/nrf_log_types.h \
+ ../config/app_gpio.h \
+ ../../../../../modules\nrfx\drivers\include/nrfx_gpiote.h \
+ ../../../../../modules/nrfx/hal/nrf_gpiote.h \
+ ../../../../../modules/nrfx/hal/nrf_gpio.h

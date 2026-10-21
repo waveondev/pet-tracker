@@ -334,16 +334,17 @@ static void button_press_timer_handler(void * p_context)
         #if 1
         else if(button_time == PARING_TIME)
         {
+          if(nrf_gpio_pin_out_read(POWER_HOLD_PIN)) 
+          {
             led_pairing_stop();
-
             Regimode_set();
+          }
         } 
         #endif
        APP_ERROR_CHECK(app_timer_start(m_button_timer,
         APP_TIMER_TICKS(1000),
         NULL));
     } 
-
 }
 
 
@@ -629,23 +630,24 @@ void gpio_init(void)
     while (1)
     {
         current_tick = app_timer_cnt_get();
-        // 2. 3초 이내에 VBUS High(1)가 감지되었는지 확인
-        if (nrf_gpio_pin_read(VBUS_IN_PIN))
-        {
-            Sleep_Set();
-            led_charger_start();
-            app_timer_stop(m_button_timer);
-            // QC 모드 진입
-            app_timer_stop(m_led_timer);
-            NRF_LOG_INFO("QC MODE ENTERED");
-            app_qc_mode();
-            break; // VBUS가 들어왔으므로 대기 루프 탈출
-        }
+
         // 3. VBUS 없이 3초가 경과했는지 확인
         if (app_timer_cnt_diff_compute(current_tick, start_tick) >= wait_ticks)
         {
             NRF_LOG_INFO("3 seconds timeout reached. VBUS not detected.");
-            break; // 3초 만료로 대기 루프 탈출
+        // 2. 3초 이내에 VBUS High(1)가 감지되었는지 확인
+          if (nrf_gpio_pin_read(VBUS_IN_PIN))
+          {
+              Sleep_Set();
+              led_charger_start();
+              app_timer_stop(m_button_timer);
+              // QC 모드 진입
+              app_timer_stop(m_led_timer);
+              NRF_LOG_INFO("QC MODE ENTERED");
+              app_qc_mode();
+              break; // VBUS가 들어왔으므로 대기 루프 탈출
+          }
+          break; // VBUS가 들어왔으므로 대기 루프 탈출
         }
 
         // CPU 점유율 조절 또는 WFE 처리 (필요시)

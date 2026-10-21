@@ -12,4 +12,6 @@ void health_data_send(Motion_Packet_t* rx_packet, int8_t rssi);
 void sensor_data_send(Motion_Packet_t* rx_packet,int8_t rssi);
 void sensor_ack_input(Motion_Packet_t* rx_packet);
 void sensor_ota_send(Motion_Packet_t* rx_packet);
+#define MAX_TRANS_DATA 540
+
 #endif

@@ -124,8 +124,8 @@ void sensor_data_send(Motion_Packet_t* rx_packet, int8_t rssi)
     // 1. 계산된 포인트 수 가져오기
         Motion_Packet.motion_start_res.total_points = calculate_total_send_count();
 
-        if(Motion_Packet.motion_start_res.total_points > 108)
-          Motion_Packet.motion_start_res.send_points = 108;
+        if(Motion_Packet.motion_start_res.total_points > MAX_TRANS_DATA)
+          Motion_Packet.motion_start_res.send_points = MAX_TRANS_DATA;
         else 
           Motion_Packet.motion_start_res.send_points = Motion_Packet.motion_start_res.total_points;
         Motion_Packet.motion_start_res.non_save_points = get_save_index();

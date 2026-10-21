@@ -2,6 +2,7 @@
 <session>
  <Bookmarks/>
  <Breakpoints groups="Breakpoints" active_group="Breakpoints">
+  <BreakpointListItem trigger="" line="657" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" stopAll="false" group="Breakpoints" type="Breakpoint" state="2" filename="../../../app_gpio.c" useHWbreakpoint="false"/>
   <Exceptions>
    <Group group="V7M Exceptions" set="BusFault;ExceptionEntryReturnFault;HardFault;MemManage;UsageFault_CheckingError;UsageFault_Coprocessor;UsageFault_StateError"/>
   </Exceptions>
@@ -82,29 +83,36 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="20" y="49" useTextEdit="1" path="../../../app_wdg.c" left="0" top="6" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="29" y="37" useTextEdit="1" path="../../../app_ble_rx.c" left="0" selected="1" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="33" y="48" useTextEdit="1" path="../config/app_sensor_flash.h" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="20" y="408" useTextEdit="1" path="../../../app_qc.c" left="0" top="403" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="21" y="156" useTextEdit="1" path="../../../main.c" left="0" top="108" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="5" y="68" useTextEdit="1" path="../../../app_gpio.c" left="0" top="29" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="28" y="72" useTextEdit="1" path="../../../app_wdg.c" left="0" top="31" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="45" y="22" useTextEdit="1" path="../../../app_ble_rx.c" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="7" y="60" useTextEdit="1" path="../config/app_sensor_flash.h" left="0" top="24" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="9" y="380" useTextEdit="1" path="../../../app_qc.c" left="0" top="358" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="298" useTextEdit="1" path="../../../main.c" left="0" selected="1" top="267" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="41" y="649" useTextEdit="1" path="../../../app_gpio.c" left="0" top="591" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="13" useTextEdit="1" path="../../../app_motion_save.c" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="421" useTextEdit="1" folds0="75" path="../../../app_sensor.c" left="0" top="110" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="26" y="138" useTextEdit="1" path="../../../app_sensor_flash.c" left="0" top="102" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="5" y="95" useTextEdit="1" path="../../../app_ble_tx.c" left="0" top="60" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="26" y="289" useTextEdit="1" path="../../../app_flash.c" left="0" top="260" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="82" y="100" useTextEdit="1" path="../../../app_central_con.c" left="0" top="87" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="15" y="94" useTextEdit="1" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.c" left="0" top="65" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="35" y="552" useTextEdit="1" folds0="75" path="../../../app_sensor.c" left="0" top="207" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="1" y="200" useTextEdit="1" path="../../../app_sensor_flash.c" left="0" top="156" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="110" useTextEdit="1" path="../../../app_ble_tx.c" left="0" top="87" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="20" y="53" useTextEdit="1" path="../../../app_flash.c" left="0" top="47" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="26" y="448" useTextEdit="1" path="../../../app_central_con.c" left="0" top="426" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="15" y="94" useTextEdit="1" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.c" left="0" top="66" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="8" y="26" useTextEdit="1" path="../config/app_gpio.h" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="9" y="71" useTextEdit="1" path="../../../app_adc.c" left="0" top="44" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="43" y="425" useTextEdit="1" path="../../../../../../modules/nrfx/drivers/src/nrfx_saadc.c" left="0" top="390" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="12" y="37" useTextEdit="1" path="../config/app_flash.h" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="66" useTextEdit="1" path="../../../app_adc.c" left="0" top="44" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="43" y="425" useTextEdit="1" path="../../../../../../modules/nrfx/drivers/src/nrfx_saadc.c" left="0" top="397" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="12" y="37" useTextEdit="1" path="../config/app_flash.h" left="0" top="9" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" path="../../../app_rtc.c" left="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" path="../../../lsm6dsv16b.c" left="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="96" useTextEdit="1" path="../../../../../../components/libraries/util/app_error_weak.c" left="0" top="70" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" path="../../../app_twi.c" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditRight" x="6" y="65" useTextEdit="1" path="../../../../../../modules/nrfx/hal/nrf_gpio.h" left="0" top="15" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditRight" x="30" y="246" useTextEdit="1" path="../../../app_peripheral_con.c" left="3" top="216" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="32" y="12394" useTextEdit="1" path="../config/sdk_config.h" left="0" top="12379" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="8" y="14" useTextEdit="1" path="../config/app_ble_tx.h" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="110" y="379" useTextEdit="1" path="../../../../../../components/softdevice/s140/headers/ble_gap.h" left="0" top="355" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="77" y="107" useTextEdit="1" path="../../../../../../modules/nrfx/mdk/system_nrf52.c" left="0" top="86" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="8" y="142" useTextEdit="1" path="../../../../../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.c" left="0" top="113" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="8" y="29" useTextEdit="1" path="C:/Program Files/SEGGER/SEGGER Embedded Studio 8.28/include/stdbool.h" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="413" useTextEdit="1" path="../../../../../../components/libraries/log/src/nrf_log_frontend.c" left="0" top="401" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditRight" x="19" y="676" useTextEdit="1" path="../../../../../../modules/nrfx/hal/nrf_gpio.h" left="0" top="636" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditRight" x="0" y="188" useTextEdit="1" path="../../../app_peripheral_con.c" left="0" top="181" codecName="Default"/>
  </Files>
  <EMStudioWindow activeProject="ble_app_uart_pca10040_s132" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Release" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="C:/nrf/nRF5_SDK_17.1.0_ddde560/examples/Tracker/ble_app_uart" debugSearchPath="" autoConnectCapabilities="3711"/>
 </session>

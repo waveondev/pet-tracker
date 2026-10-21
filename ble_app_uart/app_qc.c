@@ -337,7 +337,7 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
         case PKEY_STAT_SW_PIN:
             if (nrf_gpio_pin_read(PKEY_STAT_SW_PIN))
             {
-                button_count = 3;
+                //button_count = 3;
             } 
             else
             {
@@ -378,7 +378,9 @@ void app_qc_gpio_init(void)
 
     uint32_t start_tick = app_timer_cnt_get();
     uint32_t target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
-
+    #if 1
+    start_tick = app_timer_cnt_get();
+    target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
     nrf_gpio_pin_set(LED_GREEN_PIN);
     nrf_gpio_pin_set(LED_BLUE_PIN);
     nrf_gpio_pin_set(LED_RED_PIN);
@@ -386,6 +388,38 @@ void app_qc_gpio_init(void)
     {
 
     }
+    #else 
+    target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
+    while(1)
+    {
+
+
+        start_tick = app_timer_cnt_get();
+        nrf_gpio_pin_set(LED_GREEN_PIN);
+        nrf_gpio_pin_clear(LED_BLUE_PIN);
+        nrf_gpio_pin_clear(LED_RED_PIN);
+        while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+        {
+
+        }
+        start_tick = app_timer_cnt_get();
+        nrf_gpio_pin_set(LED_BLUE_PIN);
+        nrf_gpio_pin_clear(LED_GREEN_PIN);
+        nrf_gpio_pin_clear(LED_RED_PIN);
+        while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+        {
+
+        }
+        start_tick = app_timer_cnt_get();
+        nrf_gpio_pin_set(LED_RED_PIN);
+        nrf_gpio_pin_clear(LED_GREEN_PIN);
+        nrf_gpio_pin_clear(LED_BLUE_PIN);
+        while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+        {
+
+        }
+    }
+    #endif
     nrfx_gpiote_in_config_t pek_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
     APP_ERROR_CHECK(nrfx_gpiote_in_init(PKEY_STAT_SW_PIN, &pek_config, gpio_handler));
     nrfx_gpiote_in_event_enable(PKEY_STAT_SW_PIN, true);
@@ -456,14 +490,15 @@ static void sensor_timer_handler(void * p_context)
     }
     else
       error_set_flag(ADC_ERROR);
-    Motion_gpio_timeout--;
+    if(Motion_gpio_timeout)
+      Motion_gpio_timeout--;
     if(Motion_gpio_timeout == 0)
         error_set_flag(MOTION_ERROR);
     if(button_count)
     {
       button_count--;
       if(button_count == 0)
-          nrf_gpio_pin_clear(LED_BLUE_PIN);
+          nrf_gpio_pin_toggle(LED_BLUE_PIN);
     }
 }
 
