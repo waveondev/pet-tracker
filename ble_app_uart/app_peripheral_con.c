@@ -221,7 +221,7 @@ static void advertising_beacon_name(char* beacon_name)
                                           (const uint8_t *) beacon_name,
                                           strlen(beacon_name));
 }
-uint8_t is_ParingMode(void);
+
 static uint32_t advertising_data_start(void)
 {
 
@@ -236,16 +236,10 @@ static uint32_t advertising_data_start(void)
     next_advdata.flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     next_advdata.include_appearance = false;
     //next_advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE;
-    if(is_ParingMode())
-    {
-      service.service_uuid = 0x4321;
-      target_power = 4;
-    }
-    else
-    {
+
       service.service_uuid = 0x1234;
       target_power = setting->beacon_tx_power; 
-    }
+    
     uint8_t beacon_data[30];
 // SoftDevice로부터 칩의 MAC 주소 가져오기
 
@@ -295,10 +289,9 @@ static uint32_t advertising_beacon_start(void)
 // 1. [Adv Data (본 패킷)] : Flags + 이름 + 비콘 데이터
     advdata.flags     = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE; 
     advdata.name_type = BLE_ADVDATA_FULL_NAME; 
-    if(is_ParingMode())
-      service.service_uuid = 0x4321;
-    else
-      service.service_uuid = 0x1234;
+
+    service.service_uuid = 0x4321;
+
     service.data.p_data  = (uint8_t*)setting->beacon_data;
     service.data.size    = strlen(setting->beacon_data); // 줄이지 않고 원래 길이 그대로 사용 가능!
     
@@ -340,9 +333,8 @@ void App_advertising_start(uint8_t* Name, uint8_t data,uint32_t advertising_time
         if(advertising_data_start() != NRF_SUCCESS)
           err_code++;
         
-        //m_advertising.adv_modes_config.ble_adv_fast_interval = setting->beacon_adv_interval * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         m_advertising.adv_params.properties.type = BLE_GAP_ADV_TYPE_NONCONNECTABLE_NONSCANNABLE_UNDIRECTED;
-        m_advertising.adv_params.interval = setting->beacon_adv_interval * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
+        m_advertising.adv_params.interval = advertising_time * BLE_UNIT_MS_NUM / BLE_UNIT_MS_DEN;
         // ⭐ 핵심: 비콘 모드일 때는 얄미운 라이브러리 함수 대신 로우레벨 API 직접 호출!
         if(sd_ble_gap_adv_set_configure(&m_advertising.adv_handle, &m_advertising.adv_data, &m_advertising.adv_params) != NRF_SUCCESS)
           err_code++; 
@@ -351,7 +343,7 @@ void App_advertising_start(uint8_t* Name, uint8_t data,uint32_t advertising_time
           err_code++; 
 
     }
-   else
+    else
     {
         // 2. 폰 연결 모드 (CONNECT 버튼 살리기)
         advertising_beacon_name(Name);

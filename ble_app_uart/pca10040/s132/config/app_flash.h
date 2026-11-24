@@ -31,12 +31,20 @@
 
 
     #define FLASH_PAGE_SIZE       0x1000   // Page Size: 4 KB
-
+#if 0
+0	1000	MBR
+1000	26000	SD
+26000	3D000	app
+3d000	73000	flash
+73000	76000	fds
+77000	7df00	bootloader
+7df00   7e000   manufact
+#endif
     
     // 링 버퍼 매핑 (512KB 칩 용량에 맞춰 축소 조정)
     // 0x26000부터 App 코드가 들어가므로 0x40000~0x78000 영역을 사용
-    #define FLASH_START_ADDR      0x40000  // 링 버퍼 시작 주소
-    #define FLASH_END_ADDR        0x77000  // 링 버퍼 끝 주소 (Bootloader/FDS 시작 전 0x78000 지점)
+    #define FLASH_START_ADDR      0x3D000  // 링 버퍼 시작 주소
+    #define FLASH_END_ADDR        0x74000  
 
 #else
     #error "지원하지 않는 Target Board/SoftDevice 설정입니다."
@@ -45,32 +53,22 @@
 
 
 
-#define FLASH_SETTING_ADDR    (FLASH_END_ADDR - 0x1000)
-
+#define FLASH_SETTING_ADDR    (FLASH_END_ADDR-0x1000)
+#define FLASH_MANUFACT_ADDR    (0x7DF00)
 
 typedef struct {
     uint8_t  device_name[DEVICE_NAME_SIZE];
-    uint8_t  peripheral_1[DEVICE_NAME_SIZE];
-    uint8_t  peripheral_2[DEVICE_NAME_SIZE];
-    uint8_t  peripheral_3[DEVICE_NAME_SIZE];
-    uint8_t  peripheral_4[DEVICE_NAME_SIZE];
     uint8_t  beacon_data[DEVICE_NAME_SIZE];
-
-    uint16_t data_collect_sec;
-
     int16_t  beacon_tx_power;
-    uint16_t beacon_adv_interval;
-
     uint8_t  reserved[40];
     uint16_t crc16;                                // 2B (맨 마지막에 추가)
 } tracker_setting_t;
 
-typedef struct{
-  ble_gap_addr_t addr;
-  uint16_t       reserved;// 2바이트 (데이터 정렬을 맞추기 위한 빈 공간)
-  uint16_t crc16;
-}white_mac_t;
 
+void setting_save(void);
+void flash_factory_save(uint32_t* date, uint16_t* bat_count);
+void flash_factory_read(uint32_t* date, uint16_t* bat_count);
+void setting_erase_enable(void);
 void flash_setting_save(void);
 void tracker_factory(void);
 void factory_enable(void);

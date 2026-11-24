@@ -9,12 +9,15 @@
 #include "app_sensor_flash.h"
 #include <stdlib.h>
 #include "app_qc.h"
-
+#include "fds.h"
+#include "app_init_flash.h"
 #include "nrf_fstorage_sd.h"
 uint32_t BLE_Send_byte(uint8_t* data, uint16_t len);
 /**
  * @brief fstorage 비동기 이벤트 핸들러 인터럽트
  */
+static uint32_t factory_days = 0;
+
 static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
 {
     if (p_evt->result != NRF_SUCCESS)
@@ -49,19 +52,11 @@ NRF_FSTORAGE_DEF(nrf_fstorage_t my_fstorage) = {
 
 static tracker_setting_t tracker_setting = 
 {
-  .device_name = "T100_Tracker",
-  .peripheral_1 = "F100",
-  .peripheral_2 = "W100",
-  .peripheral_3 = "C100",
-  .peripheral_4 = "P100",
-  .beacon_data = "T100",
-  .data_collect_sec = 60,
-
+  .device_name = "Pallo",
+  .beacon_data = "prod",
   .beacon_tx_power = -20,
-  .beacon_adv_interval = 500
 };
 
-white_mac_t disconnet_mac;
 
 
 /**
@@ -162,38 +157,19 @@ ret_code_t flash_write(uint32_t addr, uint8_t* data, uint16_t len)
 
 ret_code_t flash_read(uint32_t addr, uint8_t* data, uint16_t len)
 {
-#if 0
-// 1. 주소 범위 예외 처리 예시 (설정한 범위를 벗어나면 에러 리턴)
-    if (addr < FLASH_START_ADDR || (addr + len) > FLASH_END_ADDR)
-    {
-        NRF_LOG_ERROR("Read address out of bounds: 0x%08x (len: %d)", addr, len);
-        return NRF_ERROR_INVALID_ADDR;
-    }
 
-    // 2. nrf_fstorage_read 호출 (호출 즉시 p_dest 버퍼에 데이터가 채워짐)
-    ret_code_t rc = nrf_fstorage_read(&my_fstorage, addr, data, len);
-    if (rc != NRF_SUCCESS)
-    {
-        NRF_LOG_ERROR("fstorage read failed: %d", rc);
-    }
-    NRF_LOG_INFO("read at 0x%08x", addr);
-    return rc;
-#else
+    #define NRF52832_FLASH_SIZE   (0x80000) // 512 KB
     if (data == NULL || len == 0)
     {
         return NRF_ERROR_INVALID_PARAM;
     }
 
-    // Flash 영역 범위 확인
-    if (addr < FLASH_START_ADDR ||
-        ((uint64_t)addr + len) > FLASH_END_ADDR)
+    if (((uint64_t)addr + len) > NRF52832_FLASH_SIZE)
     {
-        NRF_LOG_ERROR("Read address out of bounds: 0x%08x (len: %d)",
-                      addr, len);
+        NRF_LOG_ERROR("Read address out of bounds: 0x%08x (len: %d)", addr, len);
         return NRF_ERROR_INVALID_ADDR;
     }
 
-    // 1바이트씩 직접 Flash에서 읽기
     for (uint16_t i = 0; i < len; i++)
     {
         data[i] = *(volatile uint8_t *)(addr + i);
@@ -202,18 +178,52 @@ ret_code_t flash_read(uint32_t addr, uint8_t* data, uint16_t len)
     NRF_LOG_INFO("Flash read: addr=0x%08x len=%d", addr, len);
 
     return NRF_SUCCESS;
-#endif
-
 }
-static bool factory_flag = false;
+static bool setting_erase_flag = false;
 static bool setting_flag = false;
-void factory_enable(void)
+static bool factory_flag = false;
+static bool factory_erase_flag = false;
+void led_factory_start(void);
+void setting_erase_enable(void)
 {
-  factory_flag = true;
+  setting_erase_flag = true;
 }
 void setting_save(void)
 {
   setting_flag = true;
+}
+void factory_erase_enable(Motion_Packet_t *Motion_Packet)
+{
+  uint8_t ret = 0;
+  if(Motion_Packet->factory_req.Manufacture_date != __REV(factory_days))  
+  {
+    ret |= 1<<0;
+  }
+  if(Motion_Packet->factory_req.major != TRACKER_MAJOR)
+  {
+    ret |= 1<<1;
+  }
+  if(Motion_Packet->factory_req.minor != TRACKER_MINOR)
+  {
+    ret |= 1<<2;
+  }
+  if(Motion_Packet->factory_req.patch != TRACKER_PATCH)
+  {
+    ret |= 1<<3;
+  }
+  if(ret == 0)
+  {
+    led_factory_start();  
+    factory_erase_flag = true;
+  }
+  else
+  {
+    memset(Motion_Packet,0,sizeof(Motion_Packet_t));
+    Motion_Packet->event_code = FACTORY_RESPONSE;
+    Motion_Packet->factory_res.ret = ret;
+
+    BLE_Send_byte((uint8_t*)Motion_Packet,sizeof(Motion_Packet_t));
+  }
 }
 
 void tracker_factory(void)
@@ -223,10 +233,20 @@ void tracker_factory(void)
     setting_flag = false;
     flash_setting_save();
   }
-  if(factory_flag)
+
+  if(setting_erase_flag)
   {
+    setting_erase_flag = false;
     flash_erase(FLASH_SETTING_ADDR);
   }
+  app_fds_process();
+  if(factory_erase_flag)
+  {
+    factory_erase_flag = false;
+    flash_erase(FLASH_SETTING_ADDR);
+    fds_factory_erase_all();
+  }
+
 }
 
 void tracker_setting_dump(const tracker_setting_t *s)
@@ -234,18 +254,8 @@ void tracker_setting_dump(const tracker_setting_t *s)
     NRF_LOG_INFO("========== Tracker Setting ==========");
 
     NRF_LOG_INFO("device_name              : %s", s->device_name);
-    NRF_LOG_INFO("peripheral_1             : %s", s->peripheral_1);
-    NRF_LOG_INFO("peripheral_2             : %s", s->peripheral_2);
-    NRF_LOG_INFO("peripheral_3             : %s", s->peripheral_3);
-
-    NRF_LOG_INFO("peripheral_4             : %s", s->peripheral_4);
     NRF_LOG_INFO("beacon_data              : %s", s->beacon_data);
-
-    NRF_LOG_INFO("data_collect_sec         : %u", s->data_collect_sec);
-
     NRF_LOG_INFO("beacon_tx_power          : %d", s->beacon_tx_power);
-    NRF_LOG_INFO("beacon_adv_interval      : %u", s->beacon_adv_interval);
-
     NRF_LOG_INFO("crc16                    : 0x%04X", s->crc16);
 
     NRF_LOG_INFO("=====================================");
@@ -253,7 +263,7 @@ void tracker_setting_dump(const tracker_setting_t *s)
 void setting_change(Motion_Packet_t *Motion_Packet)
 {
     bool flag = false;
-    
+    #if 0
     // flash_packet.cmd_type으로 깔끔하게 분기 처리 가능
     switch(Motion_Packet->flash_packet.cmd_type)
     {
@@ -295,7 +305,7 @@ void setting_change(Motion_Packet_t *Motion_Packet)
           tracker_setting.beacon_adv_interval = Motion_Packet->flash_packet.flash_req_beacon_interval.interval;
           break;
     }
-
+    #endif
     if(flag)
     {
         setting_save();
@@ -304,6 +314,35 @@ void setting_change(Motion_Packet_t *Motion_Packet)
     }
 }
 
+void ManuFact_reqeust(Motion_Packet_t *Motion_Packet)
+{
+    memset(Motion_Packet,0,sizeof(Motion_Packet_t));
+    Motion_Packet->event_code = MANUFACT_RESPONSE;
+    Motion_Packet->manufact_res.Manufacture_date = __REV(factory_days);
+
+    ble_gap_addr_t addr;
+
+    if (sd_ble_gap_addr_get(&addr) == NRF_SUCCESS)
+    {
+      
+      for (int i = 0; i < 6; i++)
+      {
+          Motion_Packet->manufact_res.mac[i] = addr.addr[5 - i];
+      }
+      
+    }
+    Motion_Packet->manufact_res.major = TRACKER_MAJOR;
+    Motion_Packet->manufact_res.minor = TRACKER_MINOR;
+    Motion_Packet->manufact_res.patch = TRACKER_PATCH;
+    uint32_t date = 0;
+
+    //flash_factory_read(&date,&Motion_Packet->manufact_res.battery_time);
+    uint32_t bat_time = 0;
+    fds_factory_read(&date,&bat_time);
+    Motion_Packet->manufact_res.battery_time = (uint16_t)bat_time;
+    Motion_Packet->manufact_res.active_time = __REV(date);
+    BLE_Send_byte((uint8_t*)Motion_Packet,sizeof(Motion_Packet_t));
+}
 
 void flash_setting_save(void)
 {
@@ -322,12 +361,29 @@ void flash_setting_save(void)
     }
 }
 
+void flash_manufact_read(void)
+{
+
+    flash_read(FLASH_MANUFACT_ADDR, (uint8_t*)&factory_days ,sizeof(factory_days));
+
+// 비트 시프트 및 마스킹
+    uint16_t year  = (factory_days >> 16) & 0xFFFF; // 상위 16비트 (연도)
+    uint8_t  month = (factory_days >> 8)  & 0xFF;   // 중간 8비트 (월)
+    uint8_t  day   = factory_days & 0xFF;           // 하위 8비트 (일)
+
+   // printf("%04X %02X %02X\n", year, month, day);
+    // 출력: 2000년 01월 01일
+
+}
+
+
 
 static void fds_dump_all(void)
 {
     ret_code_t rc;
     tracker_setting_t read_setting;
-
+    flash_manufact_read();
+    //flash_factory_read(NULL,NULL);
     flash_read(FLASH_SETTING_ADDR, (uint8_t*)&read_setting ,sizeof(read_setting));
     if(crc16_ccitt_compute((uint8_t*)&read_setting,sizeof(read_setting)-2) != read_setting.crc16)
     {
@@ -337,7 +393,8 @@ static void fds_dump_all(void)
     {
       memcpy(&tracker_setting,&read_setting,sizeof(tracker_setting_t));
     }
-
+        //printf("%08x ",NRF_UICR->NRFFW[0]);
+    system_fds_startup();
     tracker_setting_dump(&tracker_setting);
 }
 #include "app_error.h"
@@ -345,7 +402,7 @@ static void fds_dump_all(void)
 uint32_t flash_init(void)
 {
     ret_code_t rc = nrf_fstorage_init(&my_fstorage, &nrf_fstorage_sd, NULL);
-    return rc;
     fds_dump_all();
+    return rc;
 }
 

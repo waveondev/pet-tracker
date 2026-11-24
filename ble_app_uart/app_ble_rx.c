@@ -11,6 +11,12 @@ void lsb6_ble_data(Motion_Packet_t* rx_packet);
 void setting_change(Motion_Packet_t *Motion_Packet);
 void rtc_sync_set_time(Motion_Packet_t* Motion_Packet);
 void timer_connection_stop_start(uint8_t state);
+void ManuFact_reqeust(Motion_Packet_t *Motion_Packet);
+void factory_erase_enable(Motion_Packet_t *Motion_Packet);
+void ping_request_input(Motion_Packet_t *Motion_Packet);
+
+
+
 void ble_data_input(uint8_t* in_data, uint16_t len, int8_t rssi)
 {
     Motion_Packet_t* Motion_Packet = (Motion_Packet_t*)in_data;
@@ -32,8 +38,8 @@ void ble_data_input(uint8_t* in_data, uint16_t len, int8_t rssi)
       case OTA_MODE_REQUEST:
         sensor_ota_send(Motion_Packet);
       break;
-      case FACTORY_REQUEST:
-        factory_enable();
+      case SETTING_ERASE_REQUEST:
+        setting_erase_enable();
       break;
       case LSM6_DATA_REQUEST:
         lsb6_ble_data(Motion_Packet);
@@ -44,7 +50,17 @@ void ble_data_input(uint8_t* in_data, uint16_t len, int8_t rssi)
       case FLASH_REQUEST:
         setting_change(Motion_Packet);
       break;
+      case MANUFACT_REQUEST:
+        ManuFact_reqeust(Motion_Packet);
+      break;
+      case PING_REQUEST:
+        ping_request_input(Motion_Packet);
+      break;
+
+      case FACTORY_REQUEST:
+        factory_erase_enable(Motion_Packet);
       
+      break;
       default:
       break;
     }

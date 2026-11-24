@@ -42,9 +42,6 @@
 #include "app_sensor.h"
 #include "app_wdg.h"
 APP_TIMER_DEF(m_sensor_timer);
-APP_TIMER_DEF(m_redled_timer);
-APP_TIMER_DEF(m_blueled_timer);
-APP_TIMER_DEF(m_greenled_timer);
 
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
@@ -68,7 +65,16 @@ APP_TIMER_DEF(m_greenled_timer);
 NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
 
 APP_TIMER_DEF(m_qc_timer);
+#define LED_PIN             LED_RED_PIN
 
+// 타이머 시간 정의
+#define BLINK_INTERVAL_MS   200
+#define PAUSE_INTERVAL_MS   2000
+
+// 타이머 인스턴스 생성
+APP_TIMER_DEF(m_led_pattern_timer_id);
+// 사용자 제어용 static 변수 (0 ~ 4)
+static volatile uint8_t ret = 0;
 
 bool qcmode_enable = false;
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
@@ -326,8 +332,6 @@ static void idle_state_handle(void)
 
 
 
-static uint8_t button_count = 0;
-
 /****************** QC GPIO*************************/
 static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
@@ -341,7 +345,7 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
             } 
             else
             {
-                button_count = 3;
+                //button_count = 3;
             } 
         break;
         case VBUS_IN_PIN:
@@ -379,15 +383,29 @@ void app_qc_gpio_init(void)
     uint32_t start_tick = app_timer_cnt_get();
     uint32_t target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
     #if 1
-    start_tick = app_timer_cnt_get();
-    target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
-    nrf_gpio_pin_set(LED_GREEN_PIN);
-    nrf_gpio_pin_set(LED_BLUE_PIN);
-    nrf_gpio_pin_set(LED_RED_PIN);
-    while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+    for(int i=0;i<3;i++)
     {
+        start_tick = app_timer_cnt_get();
+        target_ticks = APP_TIMER_TICKS(500); // 3000ms를 틱 단위로 변환
+        nrf_gpio_pin_set(LED_GREEN_PIN);
+        nrf_gpio_pin_set(LED_BLUE_PIN);
+        nrf_gpio_pin_set(LED_RED_PIN);
+        while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+        {
 
+        }
+        start_tick = app_timer_cnt_get();
+        target_ticks = APP_TIMER_TICKS(500); // 3000ms를 틱 단위로 변환
+        nrf_gpio_pin_clear(LED_GREEN_PIN);
+        nrf_gpio_pin_clear(LED_BLUE_PIN);
+        nrf_gpio_pin_clear(LED_RED_PIN);
+        while (app_timer_cnt_diff_compute(app_timer_cnt_get(), start_tick) < target_ticks)
+        {
+
+        }
     }
+
+
     #else 
     target_ticks = APP_TIMER_TICKS(2000); // 3000ms를 틱 단위로 변환
     while(1)
@@ -430,6 +448,19 @@ void app_qc_gpio_init(void)
 extern void BLE_Init(void);
 uint32_t error_flag = 0;
 extern int8_t get_rssi(void);
+// 상태 관리를 위한 구조체
+typedef struct {
+    uint8_t target_count;   // 목표 깜빡임 횟수 (ret 값: 0~4)
+    uint8_t current_count;  // 현재까지 깜빡인 횟수
+    bool    is_led_on;      // 현재 LED 점등 상태
+} led_blink_ctrl_t;
+
+static led_blink_ctrl_t m_blink_ctrl = {0};
+
+// LED 제어 래퍼 함수 (Active Low 보드 기준: 0이 켜짐, 1이 꺼짐)
+static inline void led_on(void)  {  nrf_gpio_pin_set(LED_PIN);}
+static inline void led_off(void) { nrf_gpio_pin_clear(LED_PIN); }
+
 void error_set_flag(uint32_t flag)
 {
   error_flag = flag;
@@ -438,30 +469,57 @@ void error_set_flag(uint32_t flag)
  // nrf_gpio_pin_clear(LED_RED_PIN);
   fault_code* fault_flag = get_fault_flag();
   bool health_set = false;
+  static uint8_t ret_buf = 0;
   switch(error_flag)
   {
     case FLASH_ERROR:
-        health_set = true;
-        fault_flag->bit.storage = 1;
-        led_timer_start(false,false,true,100);
-    break;
-    case ADC_ERROR:
-        health_set = true;
-        fault_flag->bit.reserved = 1;
-        led_timer_start(true,false,false,100);
-    break;
-    case MOTION_ERROR:
-        health_set = true;
-        fault_flag->bit.IMU_Err = 1;
-        led_timer_start(false,true,false,100);
+        if(fault_flag->bit.storage != 1)
+        {
+          health_set = true;
+          fault_flag->bit.storage = 1;
+          if(ret == 0)
+            ret = 4;
+        }
     break;
     case BLE_ERROR:
-        health_set = true;
-        fault_flag->bit.BLE_Err = 1;
-        led_timer_start(true,true,true,100);
+        if(fault_flag->bit.BLE_Err != 1)
+        {
+          health_set = true;
+          fault_flag->bit.BLE_Err = 1;
+          if(ret == 0)
+            ret = 3;
+        }
     break;
+    case ADC_ERROR:
+        if(fault_flag->bit.reserved != 1)
+        {
+          health_set = true;
+          fault_flag->bit.reserved = 1;
+          if(ret == 0)
+            ret = 2;
+        }
+    break;
+    case MOTION_ERROR:
+        if(fault_flag->bit.IMU_Err != 1)
+        {
+          health_set = true;
+          fault_flag->bit.IMU_Err = 1;
+          if(ret == 0)
+            ret = 1;
+        }
+    break;
+
     default:
     break;
+  }
+  if(ret != ret_buf)
+  {
+        ret_buf = ret ; 
+          app_timer_stop(m_led_pattern_timer_id);
+          led_off();
+          m_blink_ctrl.current_count = 0;
+          m_blink_ctrl.is_led_on     = false;
+          app_timer_start(m_led_pattern_timer_id, APP_TIMER_TICKS(3000), NULL);
   }
   if(health_set)
   {
@@ -474,7 +532,6 @@ void Motion_interrupt(void)
 {
     if(qcmode_enable == true)
     {
-        nrf_gpio_pin_clear(LED_GREEN_PIN);
         Motion_gpio_timeout = 3;
     }
 }
@@ -484,63 +541,69 @@ static void sensor_timer_handler(void * p_context)
 
     uint32_t battery = battery_voltage_get();
     
-    if(battery < 4300 && battery > 3400)
+    if(!(battery < 4300 && battery > 3400))
     {
-        nrf_gpio_pin_clear(LED_RED_PIN);
+        error_set_flag(ADC_ERROR);
     }
-    else
-      error_set_flag(ADC_ERROR);
     if(Motion_gpio_timeout)
       Motion_gpio_timeout--;
     if(Motion_gpio_timeout == 0)
         error_set_flag(MOTION_ERROR);
-    if(button_count)
-    {
-      button_count--;
-      if(button_count == 0)
-          nrf_gpio_pin_toggle(LED_BLUE_PIN);
-    }
+ 
 }
 
 static void QC_RED_timer_handler(void * p_context)
 {
-      nrf_gpio_pin_toggle(LED_RED_PIN);
-}
-static void QC_BLUE_timer_handler(void * p_context)
-{
-      nrf_gpio_pin_toggle(LED_BLUE_PIN);
-}
-static void QC_GREEN_timer_handler(void * p_context)
-{
-      nrf_gpio_pin_toggle(LED_GREEN_PIN);
-}
+      uint32_t err_code;
+    uint8_t target = ret; // 현재 static 변수 ret 값을 읽어옴
 
-void led_timer_start(bool r, bool g, bool b, uint32_t next_time)
-{
-  uint32_t timer_tick = APP_TIMER_TICKS(next_time);
-  if(r)
-  {
-    app_timer_stop(m_redled_timer);
-    app_timer_start(m_redled_timer, timer_tick, NULL);
-  }
-  if(g)
-  {
-    app_timer_stop(m_greenled_timer);
-    app_timer_start(m_greenled_timer, timer_tick, NULL);
-  }
-  if(b)
-  {
-    app_timer_stop(m_blueled_timer);
-    app_timer_start(m_blueled_timer, timer_tick, NULL);
-  }
-}
+    // ret이 0이거나 유효 범위(1~4)를 벗어나면 LED 끄고 종료
+    if (target == 0 || target > 4)
+    {
+        led_off();
+        m_blink_ctrl.is_led_on = false;
+        m_blink_ctrl.current_count = 0;
+        return;
+    }
+    if(!nrf_gpio_pin_out_read(POWER_HOLD_PIN) && qcmode_enable == false) 
+    {
+        return;
+    }
+    if (!m_blink_ctrl.is_led_on)
+    {
+        // [단계 1] LED 켜기 (200ms 유지)
+        led_on();
+        m_blink_ctrl.is_led_on = true;
 
+        err_code = app_timer_start(m_led_pattern_timer_id, APP_TIMER_TICKS(BLINK_INTERVAL_MS), NULL);
+        APP_ERROR_CHECK(err_code);
+    }
+    else
+    {
+        // [단계 2] LED 끄기
+        led_off();
+        m_blink_ctrl.is_led_on = false;
+        m_blink_ctrl.current_count++;
+
+        if (m_blink_ctrl.current_count < target)
+        {
+            // 아직 목표 횟수(ret)만큼 다 안 깜빡였으면 200ms 뒤 다시 켜기
+            err_code = app_timer_start(m_led_pattern_timer_id, APP_TIMER_TICKS(BLINK_INTERVAL_MS), NULL);
+            APP_ERROR_CHECK(err_code);
+        }
+        else
+        {
+            // 목표 횟수(ret)만큼 다 깜빡였으면 카운트 초기화 후 2초(2000ms) 대기
+            m_blink_ctrl.current_count = 0;
+            err_code = app_timer_start(m_led_pattern_timer_id, APP_TIMER_TICKS(PAUSE_INTERVAL_MS), NULL);
+            APP_ERROR_CHECK(err_code);
+        }
+    }
+}
 
 void app_qc_timer_create(void)
 {
-  app_timer_create(&m_redled_timer, APP_TIMER_MODE_REPEATED, QC_RED_timer_handler);
-  app_timer_create(&m_blueled_timer, APP_TIMER_MODE_REPEATED, QC_BLUE_timer_handler);
-  app_timer_create(&m_greenled_timer, APP_TIMER_MODE_REPEATED, QC_GREEN_timer_handler);
+  app_timer_create(&m_led_pattern_timer_id, APP_TIMER_MODE_SINGLE_SHOT, QC_RED_timer_handler);
 }
 
 
@@ -552,9 +615,7 @@ void app_qc_mode(void)
   
   app_qc_timer_create();
   //saadc_init();
-  wdt_init();
-  if(flash_init() != 0)
-    error_set_flag(FLASH_ERROR);
+
 
 
   if(Sensor_init(true) == false)
@@ -563,8 +624,10 @@ void app_qc_mode(void)
   saadc_timer_handler(NULL);
   Sensor_update();
   BLE_Init();
-  App_advertising_start("T100_QC", 0,100);
-
+  tracker_setting_t* setting = Tracker_Get_Setting();
+  char buf[100];
+  sprintf(buf,"%s_QC",setting->device_name);
+  App_advertising_start((uint8_t*)buf,0,100);
   err_code = app_timer_create(&m_sensor_timer,\
                           APP_TIMER_MODE_REPEATED,\
                           sensor_timer_handler);

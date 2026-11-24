@@ -12,17 +12,20 @@
 #include "app_qc.h"
 #include "app_flash.h"
 #include "app_ble_tx.h"
-
+#include "nrf_drv_gpiote.h"
+#include "app_init_flash.h"
 void paring_toggle(void);
 
 void Sleep_Set(void);
 static uint32_t press_time = 0;
 APP_TIMER_DEF(m_button_timer);
 APP_TIMER_DEF(m_led_timer);
+APP_TIMER_DEF(m_bat_timer);
 static volatile uint32_t button_time = 0;
 void pairing_set(void);
 
 void Regimode_set(void);
+static uint32_t bat_count = 0;
 typedef struct
 {
     bool pairing;
@@ -30,7 +33,7 @@ typedef struct
     bool factory;
     bool charger;
     bool charger_full;
-    bool low_bat;
+
     bool power_en;
     bool regi_en;
     uint8_t regi_tick;
@@ -38,15 +41,13 @@ typedef struct
     uint8_t factory_blue_tick;
     uint8_t factory_red_tick;
     uint8_t factory_green_tick;
+    uint8_t factory_white_tick;
     uint8_t Comunication_connect_tick;
     uint8_t connect_fail_tick;
     uint8_t battery_green_show_tick;
-    uint8_t battery_yellow_show_tick;
+    uint8_t battery_red_show_tick;
 
-    uint8_t low_battery_show_count;
-    uint8_t low_battery_show_tick;
-
-    uint8_t power_green_tick;
+    uint8_t power_on_tick;
     uint8_t power_red_tick;
 
     uint8_t paring_on_tick;
@@ -58,7 +59,7 @@ void led_regi_start(void)
 {
     m_led.regi_en = true;
     m_led.regi_tick = 2;
-    led_set_RGB(1,1,1);
+    led_set_RGB(0,0,1);
 }
 void led_regi_stop(void)
 {
@@ -73,7 +74,7 @@ void led_ble_ack_input(void)
 
 void connect_fail_event(void)
 {
-    m_led.connect_fail_tick = 10;
+    //m_led.connect_fail_tick = 10;
 }
 void led_charger_full(void)
 {
@@ -94,41 +95,36 @@ void led_power_event(void)
 {
     m_led.power_en = true;
     if(nrf_gpio_pin_out_read(POWER_HOLD_PIN)) 
+    {
         m_led.power_red_tick = 20;
+    }
     else
-        m_led.power_green_tick = 10;
+    {
+        m_led.power_on_tick = 10;
+    }
+
 }
 void comunication_connect_event(void)
 {
-    m_led.Comunication_connect_tick = 40;
+    m_led.Comunication_connect_tick = 20;
 }
 void led_battery_check_event(uint32_t level)
 {
-    if(level >= 70)
+    if(level > 30)
       m_led.battery_green_show_tick= 10;
-    else 
-      m_led.battery_yellow_show_tick= 10;
+    else
+      m_led.battery_red_show_tick= 10;
 }
-void led_low_battery_start(void)
-{
-    led_set_RGB(1,0,0);
-    m_led.low_bat = true;
-    m_led.low_battery_show_count = 3;
-    m_led.low_battery_show_tick = 10;
-}
-void led_low_battery_stop(void)
-{
-    led_set_RGB(0,0,0);
-    m_led.low_bat = false;
-}
+
 void led_factory_start(void)
 {
-    factory_enable();
-    led_set_RGB(0,0,1);
+
+    led_set_RGB(1,0,0);
     m_led.factory = true;
     m_led.factory_blue_tick = 15;
     m_led.factory_red_tick = 15;
     m_led.factory_green_tick = 15;
+    m_led.factory_white_tick = 15;
 }
 void led_factory_stop(void)
 {
@@ -145,44 +141,44 @@ void led_pairing_stop(void)
 {
     m_led.pairing = false;
 }
+
 extern uint32_t error_flag ;
+
 static void led_turnoff_timer_handler(void *p_context)
 { 
-    if(error_flag)
-      return;
 
+    static uint8_t Comunication_connect_tick_buf;
+    if(m_led.Comunication_connect_tick != Comunication_connect_tick_buf)
+    {
+      Comunication_connect_tick_buf = m_led.Comunication_connect_tick;
+      if(Comunication_connect_tick_buf == 0)
+          time_data_send(NULL,0);
+    }
     if(m_led.power_en)
     {
         
-        if(m_led.power_green_tick)
+        if(m_led.power_on_tick)
         {
-          m_led.power_green_tick--;
-          //NRF_LOG_INFO("green_on\r\n");
-          led_set_RGB(0,1,0);
-          if(m_led.power_green_tick == 0)
-           pairing_set();
+          m_led.power_on_tick--;
+          led_set_RGB(1,1,1);
         }
         else if(m_led.power_red_tick)
         {
           m_led.power_red_tick--;
-          //NRF_LOG_INFO("red_on\r\n");
           led_set_RGB(1,0,0);
         }
         else
         {
           m_led.power_en = false;
+          led_set_RGB(0,0,0);
         }
         return;
     }
+    if(error_flag)
+      return;
     if(m_led.factory)
     {
-      if(m_led.factory_blue_tick)
-      {
-
-        m_led.factory_blue_tick--;
-        led_set_RGB(0,0,1);
-      }
-      else if(m_led.factory_red_tick)
+      if(m_led.factory_red_tick)
       {
         m_led.factory_red_tick--;
         led_set_RGB(1,0,0);
@@ -192,25 +188,25 @@ static void led_turnoff_timer_handler(void *p_context)
         m_led.factory_green_tick--;
         led_set_RGB(0,1,0);
       }
+      else if(m_led.factory_white_tick)
+      {
+        m_led.factory_white_tick--;
+        led_set_RGB(1,1,1);
+      }    
+      else if(m_led.factory_blue_tick)
+      {
+
+        m_led.factory_blue_tick--;
+        led_set_RGB(0,0,1);
+      } 
       else
       {
         led_factory_stop();
-        ble_dfu_buttonless_bootloader_start_prepare();
+        //ble_dfu_buttonless_bootloader_start_prepare();
         //
-        //NVIC_SystemReset();
+        NVIC_SystemReset();
       }
       return;
-    }
-    if(m_led.regi_en)
-    {
-        static uint8_t regi_count = 0;
-        regi_count++;
-        if(m_led.regi_tick < regi_count)
-        {
-            regi_count = 0;
-            led_all_toggle();
-        }
-        return;
     }
   //--------------------------------
     if(m_led.charger)
@@ -226,21 +222,24 @@ static void led_turnoff_timer_handler(void *p_context)
         return;
     }
 
-    if(m_led.low_bat)
+    if(!nrf_gpio_pin_out_read(POWER_HOLD_PIN)) 
     {
-      m_led.low_battery_show_tick--;
-      if(m_led.low_battery_show_tick == 0)
-      {
-          m_led.low_battery_show_tick = 10;
-          nrf_gpio_pin_toggle(LED_RED_PIN);
-          m_led.low_battery_show_count--;
-          if(m_led.low_battery_show_count == 0)
-          {
-            led_low_battery_stop();
-          }
-      }
-      return;
+        return;
     }
+
+    if(m_led.regi_en)
+    {
+        static uint8_t regi_count = 0;
+        regi_count++;
+        if(m_led.regi_tick < regi_count)
+        {
+            regi_count = 0;
+            led_all_toggle();
+        }
+        return;
+    }
+
+
     //--------------------------------
     if(m_led.battery_green_show_tick)
     {
@@ -248,35 +247,33 @@ static void led_turnoff_timer_handler(void *p_context)
         led_set_RGB(0,1,0);
         return;
     }
-    if(m_led.battery_yellow_show_tick)
+    if(m_led.battery_red_show_tick)
     {
-        m_led.battery_yellow_show_tick--;
-        led_set_RGB(1,1,0);
+        m_led.battery_red_show_tick--;
+        led_set_RGB(1,0,0);
         return;
     }
+
+    
     if(m_led.pairing)
     {
         if(m_led.paring_on_tick)
         {
           m_led.paring_on_tick--;
           if(m_led.paring_on_tick == 0)
-            m_led.paring_off_tick = 50;
-          led_set_RGB(1,0,0);
+            m_led.paring_off_tick = 10;
+          led_set_RGB(1,1,0);
         }
         else if(m_led.paring_off_tick)
         {
           m_led.paring_off_tick--;
           if(m_led.paring_off_tick == 0)
             m_led.paring_on_tick = 10;
-          led_set_RGB(0,0,0);
+          led_set_RGB(1,0,1);
         }
 
         return;
     }
-
-    
-
-
 
 
     //--------------------------------
@@ -293,9 +290,8 @@ static void led_turnoff_timer_handler(void *p_context)
     if(m_led.Comunication_connect_tick)
     {
         m_led.Comunication_connect_tick--;
-        if(m_led.Comunication_connect_tick == 0)
-          time_data_send(NULL,0);
-        led_set_RGB(0,1,0);
+
+        led_set_RGB(1,1,1);
         
         return;
     }
@@ -313,8 +309,11 @@ static void led_turnoff_timer_handler(void *p_context)
 static uint8_t button_en = 0;
 static void button_press_timer_handler(void * p_context)
 {
+    if (nrf_gpio_pin_read(VBUS_IN_PIN))
+      return;
     button_en = nrf_gpio_pin_read(PKEY_STAT_SW_PIN);
     NRF_LOG_INFO("PKEY_STAT_SW_PIN = %d",button_en);
+
     if(button_en == 0)
     {
         button_time++;
@@ -327,6 +326,7 @@ static void button_press_timer_handler(void * p_context)
         {  
           if(nrf_gpio_pin_out_read(POWER_HOLD_PIN)) 
           {
+
               led_power_event();
               power_en_down(); 
           }
@@ -346,54 +346,46 @@ static void button_press_timer_handler(void * p_context)
         NULL));
     } 
 }
-
-
-#if 0
-if(button_time >= BOOT_TIME && nrf_gpio_pin_read(VBUS_IN_PIN))
+static void bat_charge_timer_handler(void *p_context)
 {
-    ble_dfu_buttonless_bootloader_start_prepare();
+  if(bat_count < 10000)
+  {
+    bat_count++;
+    fds_factory_write_bat(bat_count);
+    //flash_factory_save(NULL,&bat_count);
+  }
 }
-else 
-#endif
-static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
+
+static void sw_gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
-    ret_code_t err = NRF_SUCCESS;
-#if 1
-    switch(pin)
-    {
-        case PKEY_STAT_SW_PIN:
+            ret_code_t err = NRF_SUCCESS;
+
             button_en = nrf_gpio_pin_read(PKEY_STAT_SW_PIN);
+
             if (button_en)
             {
                 //app_timer_stop(m_button_timer);
                  err = app_timer_stop(m_button_timer);
                 NRF_LOG_INFO("timer stop err=%d", err);
                 #if 1
-                if(button_time == 0)
+                if(PARING_TIME> button_time && POWER_TIME <= button_time)
+                {
+                  pairing_set();
+                }     
+                else if(button_time == 0)
                 {
                       if(nrf_gpio_pin_out_read(POWER_HOLD_PIN))
                       {
                           uint32_t bat = battery_percent_get();
-
-                          if(bat >= 70)
-                          {
-                              led_battery_check_event(bat);
-                          }
-                          else if(bat >= 30)
-                          {
-                              led_battery_check_event(bat);
-                          }
-                          else
-                          {
-                              led_low_battery_start();
-                          }
+                          led_battery_check_event(bat);
                       }
                 }
                 #endif
-                                NRF_LOG_INFO("PKEY_STAT_SW_PIN input1");
+                NRF_LOG_INFO("PKEY_STAT_SW_PIN input1");
             }
             else
             {
+
                 button_time = 0;
                  err = app_timer_stop(m_button_timer);
                   NRF_LOG_INFO("timer stop err=%d", err);
@@ -405,25 +397,37 @@ static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 
                 //NRF_LOG_INFO("PKEY_STAT_SW_PIN input2");
             }
-            
-        break;
+}
+static void lsm_gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
+{
+        if (nrf_gpio_pin_read(LSM_INT_PIN))
+        {
+            //NRF_LOG_INFO("LSM_INT_PIN input1\r\n");
+            sensor_enable();
+        }
+        else
+        {
+            //NRF_LOG_INFO("LSM_INT_PIN input2");
+        }
+}
+static void gpio_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
+{
+    ret_code_t err = NRF_SUCCESS;
+    NRF_LOG_INFO("VBUS interrupt: pin=%u, level=%u",
+                 (unsigned int)pin,
+                 (unsigned int)nrf_gpio_pin_read(pin));
+#if 1
+    switch(pin)
+    {
         case VBUS_IN_PIN:
-            if (nrf_gpio_pin_read(VBUS_IN_PIN))
+            if (nrf_gpio_pin_read(VBUS_IN_PIN) && nrf_gpio_pin_out_read(POWER_HOLD_PIN))
             {
+                // 추가 인터럽트 차단 후 리셋
+                nrfx_gpiote_in_event_disable(VBUS_IN_PIN);
                 NVIC_SystemReset();
             }
         break;
-        case LSM_INT_PIN:
-            if (nrf_gpio_pin_read(LSM_INT_PIN))
-            {
-                //NRF_LOG_INFO("LSM_INT_PIN input1\r\n");
-                sensor_enable();
-            }
-            else
-            {
-                //NRF_LOG_INFO("LSM_INT_PIN input2");
-            }
-        break;
+
     }
     #endif
 
@@ -441,9 +445,7 @@ void power_en_up(void)
 }
 void led_all_toggle(void)
 {
-    nrf_gpio_pin_toggle(LED_GREEN_PIN);
     nrf_gpio_pin_toggle(LED_BLUE_PIN);
-    nrf_gpio_pin_toggle(LED_RED_PIN);
 }
 
 void led_all_off(void)
@@ -499,15 +501,6 @@ void gpio_timer_stop(void)
 }
 
 
-#include "nrf_pwr_mgmt.h"
-static void idle_state_handle(void)
-{
-    if (NRF_LOG_PROCESS() == false)
-    {
-        nrf_pwr_mgmt_run();
-    }
-}
-
 
 
 void gpio_init(void)
@@ -521,12 +514,17 @@ void gpio_init(void)
     {
         APP_ERROR_CHECK(nrfx_gpiote_init());
     }
+    #if 1
     APP_ERROR_CHECK(app_timer_create(&m_button_timer,
                     APP_TIMER_MODE_SINGLE_SHOT,
                     button_press_timer_handler));
     APP_ERROR_CHECK(app_timer_create(&m_led_timer,
                     APP_TIMER_MODE_REPEATED,
                     led_turnoff_timer_handler));
+    APP_ERROR_CHECK(app_timer_create(&m_bat_timer,
+    APP_TIMER_MODE_REPEATED,
+    bat_charge_timer_handler));
+
 
     nrf_gpio_cfg_output(LED_GREEN_PIN);
     nrf_gpio_cfg_output(LED_BLUE_PIN);
@@ -555,12 +553,30 @@ void gpio_init(void)
     nrf_gpio_cfg_input(VBUS_IN_PIN,NRF_GPIO_PIN_NOPULL);
     // 1. 3초간 VBUS 입력 대기 시작
     uint32_t start_tick = app_timer_cnt_get();
-    uint32_t wait_ticks = APP_TIMER_TICKS(3000); // 3초 (3000ms)
+    uint32_t wait_ticks = APP_TIMER_TICKS(200); // 3초 (3000ms)
     NRF_LOG_INFO("Waiting up to 3 seconds for VBUS connection...");
 
+    while (1)
+    {
+        current_tick = app_timer_cnt_get();
+
+        // 3. VBUS 없이 3초가 경과했는지 확인
+        if (app_timer_cnt_diff_compute(current_tick, start_tick) >= wait_ticks)
+        {
+          break; // VBUS가 들어왔으므로 대기 루프 탈출
+        }
+    }
+    if(flash_init() != 0)
+      error_set_flag(FLASH_ERROR);
     if (nrf_gpio_pin_read(VBUS_IN_PIN))
     {
         static bool facto_en = false;
+        //flash_factory_read(NULL,&bat_count);
+        fds_factory_read(NULL,&bat_count);
+        APP_ERROR_CHECK(app_timer_start(m_bat_timer,
+                                          APP_TIMER_TICKS(5 * 60 * 1000), // 5분 (300,000 ms)
+                                          NULL));
+
         Sleep_Set();
         led_charger_start();
         while (1)
@@ -595,15 +611,12 @@ void gpio_init(void)
                     {
                       if(facto_en == false)
                       {
-                          flash_init();
                           facto_en =true;
-                          factory_enable();
+                          setting_erase_enable();
                           led_factory_start();     
 
                           NRF_LOG_INFO("PKEY 10s Hold Success! QC MODE ENTERED");
                       }
-
-
                     }
                 }
             }
@@ -627,6 +640,8 @@ void gpio_init(void)
                   NULL));
     }
 #endif
+    start_tick = app_timer_cnt_get();
+    wait_ticks = APP_TIMER_TICKS(3000); // 3초 (3000ms)
     while (1)
     {
         current_tick = app_timer_cnt_get();
@@ -655,23 +670,24 @@ void gpio_init(void)
     }
     led_power_event();
     power_en_up();
-    
-
 
     nrfx_gpiote_in_config_t pek_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
     pek_config.pull = NRF_GPIO_PIN_NOPULL;   // 필요시 PULLDOWN으로 변경
-    APP_ERROR_CHECK(nrfx_gpiote_in_init(PKEY_STAT_SW_PIN, &pek_config, gpio_handler));
+    APP_ERROR_CHECK(nrfx_gpiote_in_init(PKEY_STAT_SW_PIN, &pek_config, sw_gpio_handler));
     nrfx_gpiote_in_event_enable(PKEY_STAT_SW_PIN, true);
 
     nrfx_gpiote_in_config_t lsm_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
     lsm_config.pull = NRF_GPIO_PIN_NOPULL;   // 필요시 PULLDOWN으로 변경
-    APP_ERROR_CHECK(nrfx_gpiote_in_init(LSM_INT_PIN, &lsm_config, gpio_handler));
+    APP_ERROR_CHECK(nrfx_gpiote_in_init(LSM_INT_PIN, &lsm_config, lsm_gpio_handler));
     nrfx_gpiote_in_event_enable(LSM_INT_PIN, true);
-
+#endif
+#if 1
     nrfx_gpiote_in_config_t vbus_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
     vbus_config.pull = NRF_GPIO_PIN_NOPULL;   // 필요시 PULLDOWN으로 변경
     APP_ERROR_CHECK(nrfx_gpiote_in_init(VBUS_IN_PIN, &vbus_config, gpio_handler));
     nrfx_gpiote_in_event_enable(VBUS_IN_PIN, true);
 
+    #endif
+    
 }    
 

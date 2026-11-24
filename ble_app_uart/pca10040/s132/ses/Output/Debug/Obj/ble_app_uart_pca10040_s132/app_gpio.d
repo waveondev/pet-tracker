@@ -106,4 +106,5 @@ Output/Debug/Obj/ble_app_uart_pca10040_s132/app_gpio.o: \
  ../../../../../../components/softdevice/s140/headers/nrf_sdm.h \
  ../../../../../../components/softdevice/s140/headers/nrf_error_sdm.h \
  ../config/app_ble_tx.h ../config/app_sensor_flash.h \
- ../../../../../../components/libraries/pwr_mgmt/nrf_pwr_mgmt.h
+ ../../../../../../integration/nrfx/legacy/nrf_drv_gpiote.h \
+ ../config/app_init_flash.h

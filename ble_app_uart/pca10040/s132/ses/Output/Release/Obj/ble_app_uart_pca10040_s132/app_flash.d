@@ -62,8 +62,12 @@ Output/Release/Obj/ble_app_uart_pca10040_s132/app_flash.o: \
  ../../../../../../components/libraries/log/nrf_log_default_backends.h \
  ../config/app_sensor_flash.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdlib.h \
- ../config/app_qc.h \
+ ../config/app_qc.h ../../../../../../components/libraries/fds/fds.h \
+ ../../../../../../components/libraries/util/app_util_platform.h \
  ../../../../../../components/softdevice/s140/headers/nrf_soc.h \
+ ../../../../../../components/softdevice/s140/headers/nrf_nvic.h \
  ../../../../../../components/libraries/util/app_error.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ 8.28/include/stdio.h \
- ../../../../../../components/libraries/util/app_error_weak.h
+ ../../../../../../components/libraries/util/app_error_weak.h \
+ ../config/app_init_flash.h \
+ ../../../../../../components/libraries/util/app_error.h

@@ -147,7 +147,8 @@ int8_t get_rssi(void);
 void timer_connection_stop_start(uint8_t state);
 void timer_not_conn_stop_start(uint8_t state);
 static uint32_t not_conn_time = 0;
-
+int8_t target_rssi = 0;
+bool registation_mode = false;
 typedef enum
 {
     ROLE_BOOT_UP,
@@ -169,7 +170,10 @@ static role_state_t m_role_state = ROLE_BOOT_UP;
 
 static uint8_t connect_target = 0xFF;
 void BLE_ALL_Disconnect(void);
-
+bool get_registation_mode(void)
+{
+    return registation_mode;
+}
 /**@brief Function for assert macro callback.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -320,11 +324,18 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             timer_15min_stop_start(TIMER_15_MIN_INTERVAL, 1);
             m_role_state = ROLE_PAIRING_END;
             break;
-
+        case BLE_GAP_EVT_RSSI_CHANGED:
+        {
+            target_rssi = p_ble_evt->evt.gap_evt.params.rssi_changed.rssi;
+        
+            NRF_LOG_INFO("RSSI: %d dBm", target_rssi);
+            break;
+        }
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected %d" ,p_ble_evt->evt.gap_evt.params.disconnected.reason);
             uint16_t conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-
+            if(registation_mode == true)
+              registation_mode = false;
             timer_connection_stop_start(false);
             if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
             {
@@ -334,6 +345,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             pairing_set();
             timer_15min_stop_start(0, 0);
             DebugMode_close();
+            connect_fail_event();
+            
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
             break;
@@ -510,17 +523,11 @@ void nrf_system_off_mode(void)
   go_system_off();  
 }
 
-uint8_t is_ParingMode(void)
-{
-    return (m_role_state == ROLE_PAIRING_ING )|| (m_role_state == ROLE_PAIRING_END);
-}
-
 
 static void role_timer_handler(void * p_context)
 {
     ret_code_t err_code;
 
-    int8_t rssi_dbm ;
     switch (m_role_state)
     {
         case ROLE_BOOT_UP:
@@ -533,11 +540,15 @@ static void role_timer_handler(void * p_context)
         break;
         case ROLE_PAIRING_END:
             App_advertising_stop();
-             sd_ble_gap_rssi_start(m_conn_handle, 0, 0);
+
+              err_code = sd_ble_gap_rssi_start(m_conn_handle, 0, 0);
+
+            NRF_LOG_INFO("RSSI start rc=0x%X", err_code);
             m_role_state = ROLE_PAIRING_CONNECT;
         break;
         case ROLE_PAIRING_CONNECT:
-            App_advertising_start(NULL, 1,0);
+            led_pairing_stop();
+            App_advertising_start(NULL, 1,500);
             app_timers_stop();
             m_role_state = ROLE_SLEEP;
         case ROLE_SLEEP:
@@ -709,9 +720,9 @@ static void timers_init(void)
 void BLE_ALL_Disconnect(void)
 {
     App_advertising_stop();
-    App_scan_stop();
+   // App_scan_stop();
     peri_disconnect_peer();
-    cent_disconnect_peer();
+   // cent_disconnect_peer();
 }
 void Regimode_set(void)
 {
@@ -719,7 +730,13 @@ void Regimode_set(void)
     m_role_state = ROLE_BOOT_UP;
     timer_regi_stop_start(true);
     led_regi_start();
-    App_advertising_start("T100_R_Tracker",0,100);
+    tracker_setting_t* setting = Tracker_Get_Setting();
+    uint32_t err_code = 0; // 에러 코드 변수 추가
+    char buf[30];
+    registation_mode = true;
+    sprintf(buf,"%s_R",setting->device_name);
+    
+    App_advertising_start((uint8_t*)buf,0,100);
 }
   
 void pairing_set(void)
@@ -802,34 +819,8 @@ static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
 
 int8_t get_rssi(void)
 {
-    int8_t rssi_dbm = 0;
-    uint8_t ch_index = 0;
-    if(m_conn_handle != BLE_CONN_HANDLE_INVALID)
-      return 0;
-    uint32_t err = sd_ble_gap_rssi_get(m_conn_handle, &rssi_dbm, &ch_index);
 
-    if (err == NRF_SUCCESS) {
-
-    } else if (err == NRF_ERROR_NOT_FOUND) {
-        // ⚠️ 아직 RSSI 샘플이 수집되지 않았거나 start를 안 한 상태!
-        
-        NRF_LOG_WARNING("RSSI not ready yet or rssi_start not called!");
-    } else {
-        if (err == BLE_ERROR_INVALID_CONN_HANDLE)
-        {
-
-        }
-        else if (err == NRF_ERROR_INVALID_STATE)
-        {
-   
-        }
-        else
-        {
-     
-        }
-        NRF_LOG_ERROR("sd_ble_gap_rssi_get failed: 0x%x", err);
-    }
-    return rssi_dbm;
+    return target_rssi;
 }
 
 void BLE_Init(void)
@@ -844,7 +835,7 @@ void BLE_Init(void)
 
     NRF_LOG_INFO("UART started.");
     NRF_LOG_INFO("Debug logging for UART over RTT started.");
-    App_Central_init(&system_config);
+    //App_Central_init(&system_config);
     
     sd_power_dcdc_mode_set(NRF_POWER_DCDC_ENABLE);
 
@@ -876,6 +867,8 @@ void reset_reason_get(void)
         err_code = sd_power_reset_reason_clr(~0);
     }
 }
+
+
 int main(void)
 {
     bool erase_bonds;
@@ -892,6 +885,12 @@ int main(void)
     APP_ERROR_CHECK(err_code);
 
 #endif
+  if (sizeof(Motion_Packet_t) > 20)
+  {
+      NRF_LOG_ERROR("Packet size overflow: %d bytes (Max 20)", sizeof(Motion_Packet_t));
+      // 에러 처리 (예: return NRF_ERROR_DATA_SIZE;)
+      NVIC_SystemReset();
+  }
 #if NRF_LOG_ENABLED
     log_init();
 #endif
@@ -899,36 +898,26 @@ int main(void)
     timers_init();
     ble_stack_init();
     //rtc_sync_init();
-    gpio_init();
-#if 1
 #if !DEBUG
     wdt_init();
 #endif
-   // saadc_init();
+    gpio_init();
+#if 1
+
     app_qc_timer_create();
     saadc_timer_handler(NULL);
-    if(flash_init() != 0)
-      error_set_flag(FLASH_ERROR);
 
-
-    //twi_init();
     if(Sensor_init(false) == false)
       error_set_flag(MOTION_ERROR);
-
     Sensor_update();
-
-    #if 1
     BLE_Init();            
     app_timers_start();
-    
-    #endif
+
 #endif
-    #if DEBUG
-    pairing_set();
-    #endif
+
     for (;;)
     {
-
+        tracker_factory();
         Sensor_update();
         idle_state_handle();
     }

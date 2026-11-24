@@ -159,7 +159,7 @@ uint8_t sensor_get_data(Motion_Packet_t* data)
         return 0;
     }
 
-    while ((pack_idx < (MAX_TRANS_DATA/18)) &&
+    while ((pack_idx < (MAX_TRANS_DATA/30)) &&
            (m_current_send_addr != m_target_send_addr) &&
            (max_idx < MAX_TRANS_DATA))
     {

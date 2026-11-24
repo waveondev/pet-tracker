@@ -22,9 +22,7 @@ uint8_t sensor_get_data(Motion_Packet_t* data);
 uint32_t calculate_total_send_count(void);
 void sensing_send_init(void);
 void sensing_ack_input(void);
-#define TRACKER_MAJOR 1
-#define TRACKER_MINOR 1
-#define TRACKER_PATCH 5
+
 static volatile uint32_t g_system_uptime_sec = 0;
 static void uptime_timer_handler(void * p_context)
 {
@@ -168,7 +166,7 @@ void sensor_ota_send(Motion_Packet_t* rx_packet)
     Motion_Packet.ota_res.cmd_type = 1;
      uint32_t bat = battery_percent_get();
     #if DFUMODE
-    if(bat >= 20 && rx_packet->ota_req.cmd_type == 1)
+    if(bat >= 70 && rx_packet->ota_req.cmd_type == 1)
     {
       Motion_Packet.ota_res.status = 0;
     }
@@ -189,6 +187,14 @@ void sensor_ota_send(Motion_Packet_t* rx_packet)
         }
     }
 
+}
+void ping_request_input(Motion_Packet_t *Motion_Packet)
+{
+    Motion_Packet_t ping_Packet;
+    memset(&ping_Packet,0,sizeof(ping_Packet));
+    memcpy(&ping_Packet,Motion_Packet,sizeof(Motion_Packet_t));
+    ping_Packet.event_code = PING_RESPONSE;
+    BLE_Send_byte((uint8_t*)&ping_Packet,sizeof(ping_Packet));
 }
 
 

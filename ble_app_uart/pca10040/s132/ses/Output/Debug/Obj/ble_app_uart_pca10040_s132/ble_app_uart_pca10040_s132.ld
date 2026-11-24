@@ -14,11 +14,11 @@ SECTIONS
   __FLASH1_segment_end__ = 0x00080000;
   __FLASH1_segment_size__ = 0x00080000;
 
-  __HEAPSIZE__ = 2048;
+  __HEAPSIZE__ = 3096;
   __SEGGER_RTL_vfprintf = __SEGGER_RTL_vfprintf_long;
   __SEGGER_RTL_vfscanf = __SEGGER_RTL_vfscanf_long;
   __STACKSIZE_PROCESS__ = 0;
-  __STACKSIZE__ = 2048;
+  __STACKSIZE__ = 3096;
 
   __reserved_ram_load_start__ = 0x20000000;
   .reserved_ram 0x20000000 (NOLOAD) : AT(0x20000000)
@@ -588,8 +588,8 @@ SECTIONS
 
   . = ASSERT(__heap_size__ <= __HEAPSIZE__ , "error: .heap section is larger than specified size");
 
-  __stack_load_start__ = __RAM1_segment_start__ + (__RAM1_segment_size__ - 2048);
-  .stack __RAM1_segment_start__ + (__RAM1_segment_size__ - 2048) (NOLOAD) : AT(__RAM1_segment_start__ + (__RAM1_segment_size__ - 2048))
+  __stack_load_start__ = __RAM1_segment_start__ + (__RAM1_segment_size__ - 3096);
+  .stack __RAM1_segment_start__ + (__RAM1_segment_size__ - 3096) (NOLOAD) : AT(__RAM1_segment_start__ + (__RAM1_segment_size__ - 3096))
   {
     __stack_start__ = .;
     __StackLimit =   __stack_start__;
